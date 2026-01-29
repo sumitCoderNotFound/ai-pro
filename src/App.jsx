@@ -10,6 +10,8 @@ import LandingPage from './pages/public/LandingPage'
 import PricingPage from './pages/public/PricingPage'
 import LoginPage from './pages/public/LoginPage'
 import SignupPage from './pages/public/SignupPage'
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage'
+
 
 // Private/Dashboard Pages
 import DashboardPage from './pages/private/DashboardPage'
@@ -114,6 +116,8 @@ function AppRoutes() {
         {/* Auth Routes - Only accessible when NOT logged in */}
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/signup" element={<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>} />
+        <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
+
 
         {/* Product Routes */}
         <Route path="/product/voice" element={<VoiceAIPage />} />
