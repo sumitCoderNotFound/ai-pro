@@ -51,6 +51,7 @@ const PrivateLayout = () => {
       items: [
         { name: 'Agents', href: '/dashboard/agents', icon: Bot },
         { name: 'Knowledge Base', href: '/dashboard/knowledge', icon: Database },
+        { name: 'Chat', href: '/dashboard/chat', icon: MessageSquare },
       ]
     },
     deploy: {

@@ -21,6 +21,7 @@ import CallHistoryPage from './pages/private/CallHistoryPage'
 import ChatHistoryPage from './pages/private/ChatHistoryPage'
 import AnalyticsPage from './pages/private/AnalyticsPage'
 import SettingsPage from './pages/private/SettingsPage'
+import PhoneNumbersPage from './pages/private/PhoneNumbersPage'
 
 // Product Pages
 import VoiceAIPage from './pages/product/VoiceAIPage'
@@ -57,6 +58,10 @@ import AboutPage from './pages/company/AboutPage'
 import CareersPage from './pages/company/CareersPage'
 import PressPage from './pages/company/PressPage'
 import ContactPage from './pages/company/ContactPage'
+import ChatPage from './pages/private/ChatPage'
+
+import FlowBuilderPage from './pages/private/FlowBuilderPage'
+
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -162,25 +167,34 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><PrivateLayout /></ProtectedRoute>}>
         {/* Dashboard Home */}
         <Route path="/dashboard" element={<DashboardPage />} />
-        
+
         {/* BUILD Section */}
         <Route path="/dashboard/agents" element={<AgentsPage />} />
         <Route path="/dashboard/knowledge" element={<KnowledgeBasePage />} />
-        
+
         {/* DEPLOY Section */}
-        <Route path="/dashboard/phone-numbers" element={<DashboardPage />} /> {/* Placeholder */}
+        <Route path="/dashboard/phone-numbers" element={<PhoneNumbersPage />} />
         <Route path="/dashboard/batch-calls" element={<DashboardPage />} /> {/* Placeholder */}
-        
+
         {/* MONITOR Section */}
         <Route path="/dashboard/calls" element={<CallHistoryPage />} />
         <Route path="/dashboard/chats" element={<ChatHistoryPage />} />
         <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
         <Route path="/dashboard/quality" element={<DashboardPage />} /> {/* Placeholder */}
         <Route path="/dashboard/alerts" element={<DashboardPage />} /> {/* Placeholder */}
-        
+
+        <Route path="/dashboard/flow-builder" element={<FlowBuilderPage />} />
+
         {/* SYSTEM Section */}
         <Route path="/dashboard/billing" element={<SettingsPage />} />
         <Route path="/dashboard/settings" element={<SettingsPage />} />
+
+        {/* {chat} */}
+        <Route path="/dashboard/chat" element={<ChatPage />} />
+        {/* conditional wireframe flow */}
+
+
+
       </Route>
 
       {/* ============================================ */}

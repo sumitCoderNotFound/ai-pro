@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { agentsApi } from '@/services/api'
-import { 
-  Plus, 
-  Search, 
-  MoreVertical, 
-  Play, 
-  Pause, 
-  Edit2, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  MoreVertical,
+  Play,
+  Pause,
+  Edit2,
+  Trash2,
   Copy,
   Bot,
   Phone,
@@ -26,9 +27,9 @@ const StatusBadge = ({ status }) => {
     draft: { bg: 'bg-neutral-100', text: 'text-neutral-700', dot: 'bg-neutral-500' },
     archived: { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
   }
-  
+
   const config = statusConfig[status] || statusConfig.draft
-  
+
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`}></span>
@@ -114,7 +115,7 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    
+
     if (!formData.name.trim()) {
       setError('Agent name is required')
       return
@@ -143,7 +144,7 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" onClick={onClose}></div>
-        
+
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-neutral-200">
@@ -167,7 +168,7 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
             {/* Basic Info */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-neutral-900">Basic Information</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Agent Name *
@@ -209,11 +210,10 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
                 ].map(type => (
                   <label
                     key={type.value}
-                    className={`flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${
-                      formData.agent_type === type.value
+                    className={`flex flex-col p-4 border rounded-xl cursor-pointer transition-all ${formData.agent_type === type.value
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-neutral-200 hover:border-neutral-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"
@@ -242,11 +242,10 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
                 ].map(channel => (
                   <label
                     key={channel.id}
-                    className={`flex flex-col items-center gap-2 p-4 border rounded-xl cursor-pointer transition-all ${
-                      formData.channels.includes(channel.id)
+                    className={`flex flex-col items-center gap-2 p-4 border rounded-xl cursor-pointer transition-all ${formData.channels.includes(channel.id)
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-neutral-200 hover:border-neutral-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -254,12 +253,10 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
                       onChange={() => handleChannelToggle(channel.id)}
                       className="sr-only"
                     />
-                    <channel.icon className={`w-6 h-6 ${
-                      formData.channels.includes(channel.id) ? 'text-primary-600' : 'text-neutral-400'
-                    }`} />
-                    <span className={`text-sm font-medium ${
-                      formData.channels.includes(channel.id) ? 'text-primary-700' : 'text-neutral-600'
-                    }`}>{channel.label}</span>
+                    <channel.icon className={`w-6 h-6 ${formData.channels.includes(channel.id) ? 'text-primary-600' : 'text-neutral-400'
+                      }`} />
+                    <span className={`text-sm font-medium ${formData.channels.includes(channel.id) ? 'text-primary-700' : 'text-neutral-600'
+                      }`}>{channel.label}</span>
                   </label>
                 ))}
               </div>
@@ -268,7 +265,7 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
             {/* AI Configuration */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-neutral-900">AI Configuration</h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -328,7 +325,7 @@ const AgentModal = ({ isOpen, onClose, agent, onSave }) => {
             {/* Prompts */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-neutral-900">Prompts</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   System Prompt
@@ -390,7 +387,7 @@ const DeleteModal = ({ isOpen, onClose, agent, onConfirm, isLoading }) => {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" onClick={onClose}></div>
-        
+
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
           <div className="text-center">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -425,6 +422,7 @@ const DeleteModal = ({ isOpen, onClose, agent, onConfirm, isLoading }) => {
 // Agent Card Component
 const AgentCard = ({ agent, onEdit, onDelete, onToggleStatus, onDuplicate }) => {
   const [showMenu, setShowMenu] = useState(false)
+    const navigate = useNavigate()
 
   const agentTypeLabels = {
     single_prompt: 'Single Prompt',
@@ -445,15 +443,15 @@ const AgentCard = ({ agent, onEdit, onDelete, onToggleStatus, onDuplicate }) => 
             <p className="text-sm text-neutral-500">{agentTypeLabels[agent.agent_type] || agent.agent_type}</p>
           </div>
         </div>
-        
+
         <div className="relative">
-          <button 
+          <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-2 hover:bg-neutral-100 rounded-lg"
           >
             <MoreVertical className="w-5 h-5 text-neutral-400" />
           </button>
-          
+
           {showMenu && (
             <>
               <div className="fixed inset-0" onClick={() => setShowMenu(false)}></div>
@@ -504,8 +502,8 @@ const AgentCard = ({ agent, onEdit, onDelete, onToggleStatus, onDuplicate }) => 
 
       <div className="flex items-center gap-2 mb-4">
         {agent.channels?.map(channel => (
-          <div 
-            key={channel} 
+          <div
+            key={channel}
             className="flex items-center gap-1 px-2 py-1 bg-neutral-100 rounded-lg text-xs text-neutral-600"
           >
             <ChannelIcon channel={channel} className="w-3 h-3" />
@@ -522,10 +520,20 @@ const AgentCard = ({ agent, onEdit, onDelete, onToggleStatus, onDuplicate }) => 
 
       <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
         <StatusBadge status={agent.status} />
-        <span className="text-xs text-neutral-500">
-          {agent.llm_model || 'gpt-4'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-neutral-500">
+            {agent.llm_model || 'gpt-4'}
+          </span>
+          <button
+            onClick={() => navigate(`/dashboard/chat?agent_id=${agent.id}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-lg hover:bg-primary-600 transition-colors"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Chat
+          </button>
+        </div>
       </div>
+
     </div>
   )
 }
@@ -537,7 +545,7 @@ const AgentsPage = () => {
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingAgent, setEditingAgent] = useState(null)
@@ -552,7 +560,7 @@ const AgentsPage = () => {
       const params = {}
       if (searchQuery) params.search = searchQuery
       if (statusFilter) params.status = statusFilter
-      
+
       const response = await agentsApi.list(params)
       setAgents(response.items || [])
     } catch (err) {
