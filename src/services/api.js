@@ -359,4 +359,142 @@ export const conversationsApi = {
   },
 };
 
+// ============================================
+// DASHBOARD API
+// ============================================
+
+export const dashboardApi = {
+  getStats: async () => {
+    return api.get(ENDPOINTS.DASHBOARD.STATS);
+  },
+
+  getRecentCalls: async (limit = 10) => {
+    return api.get(ENDPOINTS.DASHBOARD.RECENT_CALLS, { limit });
+  },
+
+  getTopAgents: async (limit = 5) => {
+    return api.get(ENDPOINTS.DASHBOARD.TOP_AGENTS, { limit });
+  },
+
+  getActivityChart: async (days = 7) => {
+    return api.get(ENDPOINTS.DASHBOARD.ACTIVITY_CHART, { days });
+  },
+};
+
+// ============================================
+// ANALYTICS API
+// ============================================
+
+export const analyticsApi = {
+  getOverview: async (timeRange = '7d') => {
+    return api.get(ENDPOINTS.ANALYTICS.OVERVIEW, { time_range: timeRange });
+  },
+
+  getDailyCalls: async (timeRange = '7d') => {
+    return api.get(ENDPOINTS.ANALYTICS.DAILY_CALLS, { time_range: timeRange });
+  },
+
+  getCallOutcomes: async (timeRange = '7d') => {
+    return api.get(ENDPOINTS.ANALYTICS.CALL_OUTCOMES, { time_range: timeRange });
+  },
+
+  getAgentPerformance: async (timeRange = '7d', limit = 10) => {
+    return api.get(ENDPOINTS.ANALYTICS.AGENT_PERFORMANCE, { time_range: timeRange, limit });
+  },
+
+  getChatHistory: async (params = {}) => {
+    return api.get(ENDPOINTS.ANALYTICS.CHAT_HISTORY, params);
+  },
+};
+
+// ============================================
+// SETTINGS API
+// ============================================
+
+export const settingsApi = {
+  getProfile: async () => {
+    return api.get(ENDPOINTS.SETTINGS.PROFILE);
+  },
+
+  updateProfile: async (data) => {
+    return api.patch(ENDPOINTS.SETTINGS.PROFILE, data);
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    return api.post(ENDPOINTS.SETTINGS.PASSWORD, {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  },
+
+  getWorkspace: async () => {
+    return api.get(ENDPOINTS.SETTINGS.WORKSPACE);
+  },
+
+  getBilling: async () => {
+    return api.get(ENDPOINTS.SETTINGS.BILLING);
+  },
+
+  getInvoices: async () => {
+    return api.get(ENDPOINTS.SETTINGS.INVOICES);
+  },
+
+  getNotifications: async () => {
+    return api.get(ENDPOINTS.SETTINGS.NOTIFICATIONS);
+  },
+
+  updateNotifications: async (data) => {
+    return api.patch(ENDPOINTS.SETTINGS.NOTIFICATIONS, data);
+  },
+
+  getApiKeys: async () => {
+    return api.get(ENDPOINTS.SETTINGS.API_KEYS);
+  },
+
+  createApiKey: async () => {
+    return api.post(ENDPOINTS.SETTINGS.API_KEYS);
+  },
+};
+
+// ============================================
+// MONITOR API (Batch Calls, QA, Alerts)
+// ============================================
+
+export const monitorApi = {
+  // Batch Calls
+  getBatchStats: async () => {
+    return api.get(ENDPOINTS.MONITOR.BATCH_STATS);
+  },
+
+  getBatchCampaigns: async (limit = 10) => {
+    return api.get(ENDPOINTS.MONITOR.BATCH_CAMPAIGNS, { limit });
+  },
+
+  // Quality Assurance
+  getQAStats: async (timeRange = '7d') => {
+    return api.get(ENDPOINTS.MONITOR.QA_STATS, { time_range: timeRange });
+  },
+
+  getQAReviews: async (limit = 10) => {
+    return api.get(ENDPOINTS.MONITOR.QA_REVIEWS, { limit });
+  },
+
+  getQARules: async () => {
+    return api.get(ENDPOINTS.MONITOR.QA_RULES);
+  },
+
+  // Alerts
+  getAlertsStats: async () => {
+    return api.get(ENDPOINTS.MONITOR.ALERTS_STATS);
+  },
+
+  getAlertRules: async () => {
+    return api.get(ENDPOINTS.MONITOR.ALERTS_RULES);
+  },
+
+  getAlertHistory: async (limit = 10) => {
+    return api.get(ENDPOINTS.MONITOR.ALERTS_HISTORY, { limit });
+  },
+};
+
 export default api;

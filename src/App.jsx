@@ -22,6 +22,10 @@ import ChatHistoryPage from './pages/private/ChatHistoryPage'
 import AnalyticsPage from './pages/private/AnalyticsPage'
 import SettingsPage from './pages/private/SettingsPage'
 import PhoneNumbersPage from './pages/private/PhoneNumbersPage'
+import BatchCallsPage from './pages/private/BatchCallsPage'
+import QualityAssurancePage from './pages/private/QualityAssurancePage'
+import AlertsPage from './pages/private/AlertsPage'
+import BillingPage from './pages/private/BillingPage'
 
 // Product Pages
 import VoiceAIPage from './pages/product/VoiceAIPage'
@@ -174,19 +178,19 @@ function AppRoutes() {
 
         {/* DEPLOY Section */}
         <Route path="/dashboard/phone-numbers" element={<PhoneNumbersPage />} />
-        <Route path="/dashboard/batch-calls" element={<DashboardPage />} /> {/* Placeholder */}
+        <Route path="/dashboard/batch-calls" element={<BatchCallsPage />} />
 
         {/* MONITOR Section */}
         <Route path="/dashboard/calls" element={<CallHistoryPage />} />
         <Route path="/dashboard/chats" element={<ChatHistoryPage />} />
         <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
-        <Route path="/dashboard/quality" element={<DashboardPage />} /> {/* Placeholder */}
-        <Route path="/dashboard/alerts" element={<DashboardPage />} /> {/* Placeholder */}
+        <Route path="/dashboard/quality" element={<QualityAssurancePage />} />
+        <Route path="/dashboard/alerts" element={<AlertsPage />} />
 
         <Route path="/dashboard/flow-builder" element={<FlowBuilderPage />} />
 
         {/* SYSTEM Section */}
-        <Route path="/dashboard/billing" element={<SettingsPage />} />
+        <Route path="/dashboard/billing" element={<BillingPage />} />
         <Route path="/dashboard/settings" element={<SettingsPage />} />
 
         {/* {chat} */}

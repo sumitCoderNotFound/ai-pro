@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { agentsApi } from '@/services/api'
+import { dashboardApi, agentsApi } from '@/services/api'
 import { 
   Phone, 
   CheckCircle, 
@@ -12,10 +12,12 @@ import {
   Plus,
   ArrowRight,
   MessageSquare,
-  Users
+  Users,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react'
 
-const StatCard = ({ title, value, change, changeType, icon: Icon, iconBg }) => (
+const StatCard = ({ title, value, change, changeType, icon: Icon, iconBg, isLoading }) => (
   <div className="bg-white rounded-2xl border border-neutral-200 p-6">
     <div className="flex items-center justify-between mb-4">
       <span className="text-sm text-neutral-600">{title}</span>
@@ -23,69 +25,105 @@ const StatCard = ({ title, value, change, changeType, icon: Icon, iconBg }) => (
         <Icon className="w-5 h-5 text-white" />
       </div>
     </div>
-    <div className="text-3xl font-bold text-neutral-900 mb-1">{value}</div>
-    {change && (
-      <div className={`flex items-center gap-1 text-sm ${
-        changeType === 'up' ? 'text-green-600' : 'text-red-600'
-      }`}>
-        {changeType === 'up' ? (
-          <TrendingUp className="w-4 h-4" />
-        ) : (
-          <TrendingDown className="w-4 h-4" />
-        )}
-        {change} vs last week
+    {isLoading ? (
+      <div className="animate-pulse">
+        <div className="h-8 bg-neutral-200 rounded w-24 mb-2"></div>
+        <div className="h-4 bg-neutral-100 rounded w-20"></div>
       </div>
+    ) : (
+      <>
+        <div className="text-3xl font-bold text-neutral-900 mb-1">{value}</div>
+        {change !== null && change !== undefined && (
+          <div className={`flex items-center gap-1 text-sm ${
+            changeType === 'up' ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {changeType === 'up' ? (
+              <TrendingUp className="w-4 h-4" />
+            ) : (
+              <TrendingDown className="w-4 h-4" />
+            )}
+            {changeType === 'up' ? '+' : '-'}{Math.abs(change)}% vs last week
+          </div>
+        )}
+      </>
     )}
   </div>
 )
 
 const DashboardPage = () => {
   const { user } = useAuth()
-  const [agents, setAgents] = useState([])
+  const [stats, setStats] = useState(null)
+  const [recentCalls, setRecentCalls] = useState([])
+  const [topAgents, setTopAgents] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [error, setError] = useState(null)
+
+  const fetchDashboardData = async (showRefresh = false) => {
+    if (showRefresh) setIsRefreshing(true)
+    setError(null)
+    
+    try {
+      // Fetch all dashboard data in parallel
+      const [statsRes, callsRes, agentsRes] = await Promise.all([
+        dashboardApi.getStats(),
+        dashboardApi.getRecentCalls(5),
+        dashboardApi.getTopAgents(5)
+      ])
+      
+      setStats(statsRes)
+      setRecentCalls(callsRes.calls || [])
+      setTopAgents(agentsRes.agents || [])
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err)
+      setError('Failed to load dashboard data. Please try again.')
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await agentsApi.list({ page_size: 5 })
-        setAgents(response.items || [])
-      } catch (err) {
-        console.error('Failed to fetch agents:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchData()
+    fetchDashboardData()
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(() => fetchDashboardData(), 30000)
+    return () => clearInterval(interval)
   }, [])
 
-  const stats = [
+  const handleRefresh = () => {
+    fetchDashboardData(true)
+  }
+
+  // Build stats cards from API data
+  const statsCards = [
     { 
       title: 'Total Calls', 
-      value: '2,847', 
-      change: '+12.5%', 
-      changeType: 'up',
+      value: stats?.total_calls?.value?.toLocaleString() || '0', 
+      change: stats?.total_calls?.change || null, 
+      changeType: stats?.total_calls?.change_type || null,
       icon: Phone,
       iconBg: 'bg-blue-500'
     },
     { 
       title: 'Success Rate', 
-      value: '94.2%', 
-      change: '+3.1%', 
-      changeType: 'up',
+      value: stats ? `${stats.success_rate?.value || 0}%` : '0%', 
+      change: stats?.success_rate?.change || null, 
+      changeType: stats?.success_rate?.change_type || null,
       icon: CheckCircle,
       iconBg: 'bg-green-500'
     },
     { 
       title: 'Avg. Duration', 
-      value: '2m 34s', 
-      change: '-0.3s', 
-      changeType: 'up',
+      value: stats?.avg_duration?.value || '0s', 
+      change: null, 
+      changeType: null,
       icon: Clock,
       iconBg: 'bg-yellow-500'
     },
     { 
       title: 'Active Agents', 
-      value: agents.filter(a => a.status === 'active').length.toString(), 
+      value: stats?.active_agents?.value?.toString() || '0', 
       change: null, 
       changeType: null,
       icon: Bot,
@@ -93,11 +131,16 @@ const DashboardPage = () => {
     },
   ]
 
-  const recentCalls = [
-    { phone: '+1 (555) 123-4567', agent: 'Admission Assistant', duration: '3:24', status: 'Completed', time: '2 min ago' },
-    { phone: '+1 (555) 987-6543', agent: 'Lead Qualification', duration: '5:12', status: 'Completed', time: '8 min ago' },
-    { phone: '+1 (555) 456-7890', agent: 'Support Bot', duration: '1:45', status: 'Transferred', time: '15 min ago' },
-  ]
+  const getStatusColor = (status) => {
+    const colors = {
+      'completed': 'text-green-600 bg-green-100',
+      'active': 'text-blue-600 bg-blue-100',
+      'transferred': 'text-yellow-600 bg-yellow-100',
+      'failed': 'text-red-600 bg-red-100',
+      'abandoned': 'text-neutral-600 bg-neutral-100'
+    }
+    return colors[status] || colors['active']
+  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -110,6 +153,14 @@ const DashboardPage = () => {
           <p className="text-neutral-600">Here's what's happening with your AI agents today.</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-neutral-300 rounded-xl hover:bg-neutral-50 font-medium text-neutral-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <Link
             to="/dashboard/agents"
             className="inline-flex items-center gap-2 px-4 py-2.5 border border-neutral-300 rounded-xl hover:bg-neutral-50 font-medium text-neutral-700"
@@ -127,10 +178,24 @@ const DashboardPage = () => {
         </div>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-red-700">{error}</p>
+          <button 
+            onClick={handleRefresh}
+            className="ml-auto text-red-600 hover:text-red-800 font-medium"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, i) => (
-          <StatCard key={i} {...stat} />
+        {statsCards.map((stat, i) => (
+          <StatCard key={i} {...stat} isLoading={isLoading} />
         ))}
       </div>
 
@@ -145,38 +210,94 @@ const DashboardPage = () => {
             </Link>
           </div>
           
-          <div className="space-y-4">
-            {recentCalls.map((call, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b border-neutral-100 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <Phone className="w-5 h-5 text-green-600" />
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-neutral-200 rounded-full"></div>
+                    <div>
+                      <div className="h-4 bg-neutral-200 rounded w-32 mb-2"></div>
+                      <div className="h-3 bg-neutral-100 rounded w-24"></div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-neutral-900">{call.phone}</p>
-                    <p className="text-sm text-neutral-500">{call.agent}</p>
+                  <div className="text-right">
+                    <div className="h-4 bg-neutral-200 rounded w-12 mb-2"></div>
+                    <div className="h-3 bg-neutral-100 rounded w-16"></div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-neutral-900">{call.duration}</p>
-                  <p className="text-sm text-neutral-500">{call.time}</p>
+              ))}
+            </div>
+          ) : recentCalls.length === 0 ? (
+            <div className="text-center py-8">
+              <Phone className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+              <p className="text-neutral-500">No calls yet</p>
+              <p className="text-sm text-neutral-400 mt-1">
+                Conversations will appear here once they start
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentCalls.map((call) => (
+                <div key={call.id} className="flex items-center justify-between py-3 border-b border-neutral-100 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      call.type === 'chat' ? 'bg-blue-100' : 'bg-green-100'
+                    }`}>
+                      {call.type === 'chat' ? (
+                        <MessageSquare className={`w-5 h-5 ${call.type === 'chat' ? 'text-blue-600' : 'text-green-600'}`} />
+                      ) : (
+                        <Phone className="w-5 h-5 text-green-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-neutral-900">{call.phone}</p>
+                      <p className="text-sm text-neutral-500">{call.agent}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-neutral-900">{call.duration}</p>
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${getStatusColor(call.status)}`}>
+                        {call.status}
+                      </span>
+                      <span className="text-sm text-neutral-500">{call.time}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Top Agents */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-neutral-900">Top Performing Agents</h2>
+            <Link to="/dashboard/agents" className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+              View All <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
           
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-neutral-200 rounded-xl"></div>
+                    <div>
+                      <div className="h-4 bg-neutral-200 rounded w-28 mb-2"></div>
+                      <div className="h-3 bg-neutral-100 rounded w-20"></div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="w-24 h-2 bg-neutral-200 rounded-full"></div>
+                    <div className="h-3 bg-neutral-100 rounded w-10 mt-2 ml-auto"></div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : agents.length === 0 ? (
+          ) : topAgents.length === 0 ? (
             <div className="text-center py-8">
               <Bot className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
               <p className="text-neutral-500">No agents yet</p>
@@ -186,7 +307,7 @@ const DashboardPage = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {agents.slice(0, 3).map((agent, i) => (
+              {topAgents.map((agent, i) => (
                 <div key={agent.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
@@ -194,17 +315,22 @@ const DashboardPage = () => {
                     </div>
                     <div>
                       <p className="font-medium text-neutral-900">{agent.name}</p>
-                      <p className="text-sm text-neutral-500 capitalize">{agent.status}</p>
+                      <p className="text-sm text-neutral-500">
+                        {agent.total_conversations} conversations
+                        {agent.status === 'active' && (
+                          <span className="ml-2 text-green-600">• Active</span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="w-24 h-2 bg-neutral-100 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-primary-500 rounded-full" 
-                        style={{ width: `${90 - i * 5}%` }}
+                        className="h-full bg-primary-500 rounded-full transition-all duration-500" 
+                        style={{ width: `${agent.success_rate}%` }}
                       ></div>
                     </div>
-                    <p className="text-xs text-neutral-500 mt-1">{90 - i * 5}%</p>
+                    <p className="text-xs text-neutral-500 mt-1">{agent.success_rate}% success</p>
                   </div>
                 </div>
               ))}
@@ -212,6 +338,27 @@ const DashboardPage = () => {
           )}
         </div>
       </div>
+
+      {/* Quick Stats Summary */}
+      {!isLoading && stats && (
+        <div className="mt-6 bg-gradient-to-r from-primary-50 to-purple-50 rounded-2xl border border-primary-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-neutral-900">Quick Summary</h3>
+              <p className="text-neutral-600 text-sm mt-1">
+                You have {stats.active_agents?.value || 0} active agent{stats.active_agents?.value !== 1 ? 's' : ''} handling {stats.total_calls?.value || 0} conversation{stats.total_calls?.value !== 1 ? 's' : ''} with a {stats.success_rate?.value || 0}% success rate.
+              </p>
+            </div>
+            <Link
+              to="/dashboard/analytics"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-white border border-primary-200 rounded-xl text-primary-700 hover:bg-primary-50 font-medium"
+            >
+              View Analytics
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

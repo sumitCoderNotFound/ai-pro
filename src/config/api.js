@@ -50,7 +50,7 @@ export const ENDPOINTS = {
     FROM_TEMPLATE: '/agents/from-template',
   },
   
-  // Knowledge Base (future)
+  // Knowledge Base
   KNOWLEDGE_BASE: {
     LIST: '/knowledge-bases',
     CREATE: '/knowledge-bases',
@@ -60,11 +60,51 @@ export const ENDPOINTS = {
     UPLOAD: (id) => `/knowledge-bases/${id}/documents/upload`,
   },
   
-  // Conversations (future)
+  // Conversations
   CONVERSATIONS: {
     LIST: '/conversations',
     GET: (id) => `/conversations/${id}`,
     MESSAGES: (id) => `/conversations/${id}/messages`,
+  },
+  
+  // Dashboard
+  DASHBOARD: {
+    STATS: '/dashboard/stats',
+    RECENT_CALLS: '/dashboard/recent-calls',
+    TOP_AGENTS: '/dashboard/top-agents',
+    ACTIVITY_CHART: '/dashboard/activity-chart',
+  },
+  
+  // Analytics
+  ANALYTICS: {
+    OVERVIEW: '/analytics/overview',
+    DAILY_CALLS: '/analytics/daily-calls',
+    CALL_OUTCOMES: '/analytics/call-outcomes',
+    AGENT_PERFORMANCE: '/analytics/agent-performance',
+    CHAT_HISTORY: '/analytics/chat-history',
+  },
+  
+  // Settings
+  SETTINGS: {
+    PROFILE: '/settings/profile',
+    WORKSPACE: '/settings/workspace',
+    BILLING: '/settings/billing',
+    INVOICES: '/settings/billing/invoices',
+    NOTIFICATIONS: '/settings/notifications',
+    API_KEYS: '/settings/api-keys',
+    PASSWORD: '/settings/password',
+  },
+  
+  // Monitor (Batch Calls, QA, Alerts)
+  MONITOR: {
+    BATCH_STATS: '/monitor/batch-calls/stats',
+    BATCH_CAMPAIGNS: '/monitor/batch-calls/campaigns',
+    QA_STATS: '/monitor/qa/stats',
+    QA_REVIEWS: '/monitor/qa/reviews',
+    QA_RULES: '/monitor/qa/rules',
+    ALERTS_STATS: '/monitor/alerts/stats',
+    ALERTS_RULES: '/monitor/alerts/rules',
+    ALERTS_HISTORY: '/monitor/alerts/history',
   },
 };
 

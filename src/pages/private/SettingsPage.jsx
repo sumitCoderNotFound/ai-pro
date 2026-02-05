@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { settingsApi } from '@/services/api'
 import { 
   User, 
   Building, 
@@ -9,20 +10,31 @@ import {
   Key,
   Save,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react'
 
 const SettingsPage = () => {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('profile')
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
 
   const [profileData, setProfileData] = useState({
-    full_name: user?.full_name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
+    full_name: '',
+    email: '',
+    phone: '',
     timezone: 'America/New_York',
+  })
+
+  const [billingData, setBillingData] = useState({
+    plan: { name: 'Free', price: 0 },
+    trial: { is_trial: true, days_remaining: 14 },
+    usage: {
+      conversations: { used: 0, limit: 500 },
+      agents: { used: 0, limit: 1 }
+    }
   })
 
   const [notificationSettings, setNotificationSettings] = useState({
@@ -41,16 +53,96 @@ const SettingsPage = () => {
     { id: 'api', label: 'API Keys', icon: Key },
   ]
 
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      fetchProfile()
+    } else if (activeTab === 'billing') {
+      fetchBilling()
+    } else if (activeTab === 'notifications') {
+      fetchNotifications()
+    }
+  }, [activeTab])
+
+  const fetchProfile = async () => {
+    setIsLoading(true)
+    try {
+      const data = await settingsApi.getProfile()
+      setProfileData({
+        full_name: data.full_name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        timezone: data.timezone || 'America/New_York',
+      })
+    } catch (err) {
+      console.error('Failed to fetch profile:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchBilling = async () => {
+    setIsLoading(true)
+    try {
+      const data = await settingsApi.getBilling()
+      setBillingData(data)
+    } catch (err) {
+      console.error('Failed to fetch billing:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchNotifications = async () => {
+    setIsLoading(true)
+    try {
+      const data = await settingsApi.getNotifications()
+      setNotificationSettings(data)
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSaveProfile = async () => {
     setIsSaving(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setMessage({ type: 'success', text: 'Profile updated successfully!' })
-    setIsSaving(false)
-    setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    try {
+      await settingsApi.updateProfile({
+        full_name: profileData.full_name,
+        phone: profileData.phone,
+        timezone: profileData.timezone,
+      })
+      setMessage({ type: 'success', text: 'Profile updated successfully!' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update profile' })
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    }
+  }
+
+  const handleSaveNotifications = async () => {
+    setIsSaving(true)
+    try {
+      await settingsApi.updateNotifications(notificationSettings)
+      setMessage({ type: 'success', text: 'Notification settings updated!' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update settings' })
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    }
   }
 
   const renderTabContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+        </div>
+      )
+    }
+
     switch (activeTab) {
       case 'profile':
         return (
@@ -149,6 +241,17 @@ const SettingsPage = () => {
                 </div>
               ))}
             </div>
+
+            <div className="pt-4 border-t border-neutral-200">
+              <button
+                onClick={handleSaveNotifications}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         )
 
@@ -160,10 +263,14 @@ const SettingsPage = () => {
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-6 text-white">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm opacity-80">Current Plan</span>
-                <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">Free Trial</span>
+                <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                  {billingData.trial?.is_trial ? 'Free Trial' : billingData.plan?.name}
+                </span>
               </div>
-              <p className="text-3xl font-bold mb-1">$0/month</p>
-              <p className="text-sm opacity-80 mb-4">14 days remaining in your trial</p>
+              <p className="text-3xl font-bold mb-1">${billingData.plan?.price || 0}/month</p>
+              {billingData.trial?.is_trial && (
+                <p className="text-sm opacity-80 mb-4">{billingData.trial.days_remaining} days remaining in your trial</p>
+              )}
               <button className="w-full py-2.5 bg-white text-primary-600 rounded-xl font-medium hover:bg-neutral-100">
                 Upgrade Plan
               </button>
@@ -175,19 +282,29 @@ const SettingsPage = () => {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-neutral-600">Conversations</span>
-                    <span className="text-neutral-900 font-medium">847 / 1,000</span>
+                    <span className="text-neutral-900 font-medium">
+                      {billingData.usage?.conversations?.used?.toLocaleString() || 0} / {billingData.usage?.conversations?.limit?.toLocaleString() || 0}
+                    </span>
                   </div>
                   <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-500 rounded-full" style={{ width: '84.7%' }}></div>
+                    <div 
+                      className="h-full bg-primary-500 rounded-full" 
+                      style={{ width: `${Math.min((billingData.usage?.conversations?.used || 0) / (billingData.usage?.conversations?.limit || 1) * 100, 100)}%` }}
+                    ></div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-neutral-600">AI Agents</span>
-                    <span className="text-neutral-900 font-medium">1 / 1</span>
+                    <span className="text-neutral-900 font-medium">
+                      {billingData.usage?.agents?.used || 0} / {billingData.usage?.agents?.limit || 0}
+                    </span>
                   </div>
                   <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-500 rounded-full" style={{ width: '100%' }}></div>
+                    <div 
+                      className="h-full bg-primary-500 rounded-full" 
+                      style={{ width: `${Math.min((billingData.usage?.agents?.used || 0) / (billingData.usage?.agents?.limit || 1) * 100, 100)}%` }}
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -205,7 +322,7 @@ const SettingsPage = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-neutral-900">Password</p>
-                    <p className="text-sm text-neutral-500">Last changed 30 days ago</p>
+                    <p className="text-sm text-neutral-500">Change your account password</p>
                   </div>
                   <button className="px-4 py-2 border border-neutral-300 rounded-xl text-sm font-medium hover:bg-neutral-100">
                     Change Password
