@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Button } from '@/components/ui'
+import { Card, Button, Dropdown, DropdownItem } from '@/components/ui'
 import { analyticsApi, agentsApi } from '@/services/api'
 import { 
   Search, 
@@ -12,7 +12,11 @@ import {
   Bot,
   Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Trash2,
+  FileText,
+  ExternalLink
 } from 'lucide-react'
 
 const ChatHistoryPage = () => {
@@ -198,9 +202,49 @@ const ChatHistoryPage = () => {
                     {chat.date} at {chat.time}
                   </td>
                   <td className="px-6 py-4">
-                    <button className="p-2 hover:bg-neutral-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                      <MoreVertical className="w-4 h-4 text-neutral-400" />
-                    </button>
+                    <Dropdown
+                      trigger={
+                        <button className="p-2 hover:bg-neutral-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                          <MoreVertical className="w-4 h-4 text-neutral-400" />
+                        </button>
+                      }
+                    >
+                      {(close) => (
+                        <>
+                          <DropdownItem 
+                            icon={Eye} 
+                            onClick={() => { close(); alert(`View chat: ${chat.id}`); }}
+                          >
+                            View Transcript
+                          </DropdownItem>
+                          <DropdownItem 
+                            icon={FileText} 
+                            onClick={() => { close(); alert(`Export chat: ${chat.id}`); }}
+                          >
+                            Export
+                          </DropdownItem>
+                          <DropdownItem 
+                            icon={ExternalLink} 
+                            onClick={() => { close(); alert(`Open in new tab: ${chat.id}`); }}
+                          >
+                            Open in New Tab
+                          </DropdownItem>
+                          <div className="border-t border-neutral-100 my-1" />
+                          <DropdownItem 
+                            icon={Trash2} 
+                            variant="danger"
+                            onClick={() => { 
+                              close(); 
+                              if(confirm('Delete this chat?')) {
+                                setChats(prev => prev.filter(c => c.id !== chat.id));
+                              }
+                            }}
+                          >
+                            Delete
+                          </DropdownItem>
+                        </>
+                      )}
+                    </Dropdown>
                   </td>
                 </tr>
               ))}

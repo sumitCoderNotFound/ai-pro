@@ -11,7 +11,10 @@ import {
   Phone,
   Download,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  X,
+  FileText,
+  FileSpreadsheet
 } from 'lucide-react'
 
 const QualityAssurancePage = () => {
@@ -29,6 +32,11 @@ const QualityAssurancePage = () => {
   })
   const [reviews, setReviews] = useState([])
   const [rules, setRules] = useState([])
+  
+  // Export modal state
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState('csv')
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -53,6 +61,76 @@ const QualityAssurancePage = () => {
   useEffect(() => {
     fetchData()
   }, [selectedPeriod])
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const exportData = {
+        generatedAt: new Date().toISOString(),
+        timePeriod: selectedPeriod,
+        stats: stats,
+        reviews: reviews,
+        rules: rules
+      }
+      
+      let content, filename, type
+      
+      if (exportFormat === 'csv') {
+        let csv = 'QA Report\n'
+        csv += `Generated: ${new Date().toLocaleString()}\n`
+        csv += `Time Period: ${selectedPeriod}\n\n`
+        
+        // Stats
+        csv += 'Overview\n'
+        csv += `Overall Score,${stats.overall_score}%\n`
+        csv += `Score Change,${stats.score_change}%\n`
+        csv += `Total Reviewed,${stats.total_reviewed}\n`
+        csv += `Passed,${stats.passed}\n`
+        csv += `Failed,${stats.failed}\n`
+        csv += `Flagged,${stats.flagged}\n\n`
+        
+        // Reviews
+        csv += 'Recent Reviews\n'
+        csv += 'Agent,Conversation ID,Score,Status,Time\n'
+        reviews.forEach(review => {
+          csv += `${review.agent},${review.conversation_id},${review.score},${review.status},${review.time_ago}\n`
+        })
+        csv += '\n'
+        
+        // Rules
+        csv += 'QA Rules\n'
+        csv += 'Rule Name,Enabled,Pass Rate\n'
+        rules.forEach(rule => {
+          csv += `${rule.name},${rule.enabled ? 'Yes' : 'No'},${rule.pass_rate}%\n`
+        })
+        
+        content = csv
+        filename = `qa-report-${selectedPeriod}-${Date.now()}.csv`
+        type = 'text/csv'
+      } else {
+        content = JSON.stringify(exportData, null, 2)
+        filename = `qa-report-${selectedPeriod}-${Date.now()}.json`
+        type = 'application/json'
+      }
+      
+      const blob = new Blob([content], { type })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      setShowExportModal(false)
+    } catch (err) {
+      console.error('Export failed:', err)
+      alert('Failed to export data')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-green-600'
@@ -87,7 +165,7 @@ const QualityAssurancePage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">AI Quality Assurance</h1>
-          <p className="text-neutral-600">Monitor and improve your AI agent performance</p>
+          <p className="text-neutral-600 text-sm">Monitor and improve your AI agent performance</p>
         </div>
         <div className="flex items-center gap-3">
           <select 
@@ -105,18 +183,32 @@ const QualityAssurancePage = () => {
           >
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 border border-neutral-300 rounded-xl hover:bg-neutral-50 font-medium text-neutral-700">
+          <button 
+            onClick={() => setShowExportModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium text-sm"
+          >
             <Download className="w-5 h-5" />
             Export Report
           </button>
         </div>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-600" />
+          <p className="text-red-700 text-sm">{error}</p>
+          <button onClick={fetchData} className="ml-auto text-red-600 hover:text-red-800 font-medium text-sm">
+            Try Again
+          </button>
+        </div>
+      )}
+
       {/* Score Overview */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white rounded-2xl border border-neutral-200 p-6 col-span-2 lg:col-span-1">
           <div className="text-sm text-neutral-600 mb-2">Overall QA Score</div>
-          <div className={`text-4xl font-bold ${getScoreColor(stats.overall_score)}`}>
+          <div className={`text-3xl font-bold ${getScoreColor(stats.overall_score)}`}>
             {stats.overall_score}%
           </div>
           <div className={`flex items-center gap-1 mt-2 text-sm ${stats.score_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -191,7 +283,7 @@ const QualityAssurancePage = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className={`text-2xl font-bold ${getScoreColor(review.score)}`}>
+                      <div className={`text-xl font-bold ${getScoreColor(review.score)}`}>
                         {review.score}
                       </div>
                       {getStatusBadge(review.status)}
@@ -260,6 +352,92 @@ const QualityAssurancePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+              <h2 className="text-xl font-semibold text-neutral-900">Export QA Report</h2>
+              <button 
+                onClick={() => setShowExportModal(false)}
+                className="p-2 hover:bg-neutral-100 rounded-lg"
+              >
+                <X className="w-5 h-5 text-neutral-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-neutral-600">
+                Export your QA report for the selected time period ({selectedPeriod}).
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Export Format
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('csv')}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                      exportFormat === 'csv'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-neutral-200 hover:border-neutral-300'
+                    }`}
+                  >
+                    <FileSpreadsheet className={`w-8 h-8 ${exportFormat === 'csv' ? 'text-primary-600' : 'text-neutral-400'}`} />
+                    <span className={`text-sm font-medium ${exportFormat === 'csv' ? 'text-primary-700' : 'text-neutral-600'}`}>
+                      CSV
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('json')}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                      exportFormat === 'json'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-neutral-200 hover:border-neutral-300'
+                    }`}
+                  >
+                    <FileText className={`w-8 h-8 ${exportFormat === 'json' ? 'text-primary-600' : 'text-neutral-400'}`} />
+                    <span className={`text-sm font-medium ${exportFormat === 'json' ? 'text-primary-700' : 'text-neutral-600'}`}>
+                      JSON
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="flex-1 px-4 py-2.5 border border-neutral-300 rounded-xl hover:bg-neutral-50 font-medium text-neutral-700 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Export
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -524,6 +524,26 @@ const AgentCard = ({ agent, onEdit, onDelete, onToggleStatus, onDuplicate }) => 
           <span className="text-xs text-neutral-500">
             {agent.llm_model || 'gpt-4'}
           </span>
+          {/* Video Call Button - show if agent has video channel */}
+          {agent.channels?.includes('video') && (
+            <button
+              onClick={() => navigate(`/dashboard/video/${agent.id}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 transition-colors"
+            >
+              <Video className="w-3.5 h-3.5" />
+              Video
+            </button>
+          )}
+          {/* Voice Call Button - show if agent has voice channel */}
+          {agent.channels?.includes('voice') && (
+            <button
+              onClick={() => navigate(`/dashboard/call/${agent.id}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              Call
+            </button>
+          )}
           <button
             onClick={() => navigate(`/dashboard/chat?agent_id=${agent.id}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-lg hover:bg-primary-600 transition-colors"

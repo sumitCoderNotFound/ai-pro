@@ -54,19 +54,20 @@
     @apply bg-white text-neutral-900 font-sans antialiased;
   }
   
-  h1, h2, h3, h4, h5, h6 {
+  /* Only apply large heading styles to marketing pages, not dashboard */
+  .marketing-page h1, .marketing-page h2, .marketing-page h3, .marketing-page h4, .marketing-page h5, .marketing-page h6 {
     @apply font-display font-bold tracking-tight;
   }
   
-  h1 {
+  .marketing-page h1 {
     @apply text-display-xl md:text-display-2xl;
   }
   
-  h2 {
+  .marketing-page h2 {
     @apply text-display-md md:text-display-lg;
   }
   
-  h3 {
+  .marketing-page h3 {
     @apply text-display-sm md:text-display-md;
   }
   
