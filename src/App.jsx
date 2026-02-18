@@ -66,6 +66,8 @@ import ChatPage from './pages/private/ChatPage'
 
 import FlowBuilderPage from './pages/private/FlowBuilderPage'
 import VideoCallPage from './pages/private/VideoCallPage'
+import VoiceCallPage from './pages/private/VoiceCallPage'
+import AgentDetailPage from './pages/private/AgentDetailPage'
 
 
 // Protected Route Component
@@ -193,7 +195,11 @@ function AppRoutes() {
         {/* SYSTEM Section */}
         <Route path="/dashboard/billing" element={<BillingPage />} />
         <Route path="/dashboard/settings" element={<SettingsPage />} />
-                <Route path="/dashboard/video/:agentId" element={<VideoCallPage />} />
+        <Route path="/dashboard/video/:agentId" element={<VideoCallPage />} />
+        <Route path="/dashboard/call/:agentId" element={<VoiceCallPage />} />
+
+        <Route path="/dashboard/agents/:agentId" element={<AgentDetailPage />} />
+
 
 
         {/* {chat} */}

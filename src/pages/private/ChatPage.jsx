@@ -167,12 +167,12 @@ const CollapsibleSection = ({ title, icon: Icon, children, defaultOpen = false }
 
 const MessageBubble = ({ message, isUser }) => (
   <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-primary-100' : 'bg-neutral-800'}`}>
-      {isUser ? <User className="w-4 h-4 text-primary-600" /> : <Bot className="w-4 h-4 text-white" />}
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-blue-500' : 'bg-neutral-800'}`}>
+      {isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
     </div>
-    <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${isUser ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-900'}`}>
+    <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${isUser ? 'bg-blue-500 text-white' : 'bg-white border border-neutral-200 text-neutral-900'}`}>
       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-      <p className={`text-xs mt-1.5 ${isUser ? 'text-primary-200' : 'text-neutral-400'}`}>
+      <p className={`text-xs mt-1.5 ${isUser ? 'text-blue-100' : 'text-neutral-400'}`}>
         {new Date(message.timestamp || message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
     </div>

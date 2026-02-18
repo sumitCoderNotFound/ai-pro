@@ -8,23 +8,14 @@ import ReactFlow, {
     Controls,
     Background,
     MiniMap,
-    Panel,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
 import {
     Save,
     Play,
-    Undo,
-    Redo,
-    ZoomIn,
-    ZoomOut,
-    Maximize2,
     ArrowLeft,
-    Plus,
     Trash2,
-    Copy,
-    Settings,
     MessageSquare,
     HelpCircle,
     GitBranch,
@@ -33,8 +24,15 @@ import {
     StopCircle,
     Loader2,
     Check,
-    ChevronRight,
-    X
+    X,
+    Wand2,
+    Sparkles,
+    Lightbulb,
+    AlertCircle,
+    Plus,
+    FileText,
+    Clock,
+    CheckCircle2
 } from 'lucide-react'
 
 // Custom Node Components
@@ -67,6 +65,16 @@ const flowApi = {
         if (!response.ok) throw new Error('Failed to get flow')
         return response.json()
     },
+    listFlows: async (agentId) => {
+        const url = agentId 
+            ? `${API_URL}/api/v1/flows?agent_id=${agentId}`
+            : `${API_URL}/api/v1/flows`
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        })
+        if (!response.ok) throw new Error('Failed to list flows')
+        return response.json()
+    },
     updateFlow: async (flowId, data) => {
         const response = await fetch(`${API_URL}/api/v1/flows/${flowId}`, {
             method: 'PATCH',
@@ -85,6 +93,14 @@ const flowApi = {
         if (!response.ok) throw new Error('Failed to create flow')
         return response.json()
     },
+    deleteFlow: async (flowId) => {
+        const response = await fetch(`${API_URL}/api/v1/flows/${flowId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+        })
+        if (!response.ok) throw new Error('Failed to delete flow')
+        return response.json()
+    },
     activateFlow: async (flowId) => {
         const response = await fetch(`${API_URL}/api/v1/flows/${flowId}/activate`, {
             method: 'POST',
@@ -93,17 +109,22 @@ const flowApi = {
         if (!response.ok) throw new Error('Failed to activate flow')
         return response.json()
     },
-    getTemplates: async () => {
-        const response = await fetch(`${API_URL}/api/v1/flows/templates/list`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
+    generateFlow: async (data) => {
+        const response = await fetch(`${API_URL}/api/v1/flows/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify(data)
         })
-        if (!response.ok) throw new Error('Failed to get templates')
+        if (!response.ok) {
+            const err = await response.json()
+            throw new Error(err.detail || 'Failed to generate flow')
+        }
         return response.json()
     },
 }
 
 // Node palette items
-const nodeTypes_palette = [
+const nodePalette = [
     { type: 'start', label: 'Start', icon: Circle, color: 'bg-green-500', description: 'Flow entry point' },
     { type: 'message', label: 'Message', icon: MessageSquare, color: 'bg-blue-500', description: 'Send a message' },
     { type: 'question', label: 'Question', icon: HelpCircle, color: 'bg-purple-500', description: 'Ask for input' },
@@ -112,8 +133,18 @@ const nodeTypes_palette = [
     { type: 'end', label: 'End', icon: StopCircle, color: 'bg-red-500', description: 'End conversation' },
 ]
 
+// Example prompts for AI generator
+const EXAMPLE_PROMPTS = [
+    { title: "Lead Capture", prompt: "Create a lead capture flow that welcomes visitors, asks for their interest (Product Demo, Pricing, Support), collects their email and phone number, then thanks them.", icon: "🎯" },
+    { title: "Study Abroad", prompt: "Create a flow for study abroad that asks which country they want to study (UK, USA, Canada, Australia), their preferred study level (Bachelors, Masters, PhD), their budget range, then collects email for recommendations.", icon: "🎓" },
+    { title: "Appointment", prompt: "Create an appointment booking flow that asks what service they need, preferred date, preferred time slot (Morning, Afternoon, Evening), collects their name, email and phone, then confirms.", icon: "📅" },
+    { title: "Support Ticket", prompt: "Create a support ticket flow that asks the issue category (Technical, Billing, Account), urgency level (Critical, High, Medium, Low), a description, their email, then creates a ticket.", icon: "🎫" },
+    { title: "Hotel Booking", prompt: "Create a hotel booking flow that asks check-in date, check-out date, number of guests, room type (Standard, Deluxe, Suite), collects guest name and email, then confirms.", icon: "🏨" },
+    { title: "Qualification", prompt: "Create a qualification flow that asks company size (1-10, 11-50, 51-200, 200+), their role, budget range, and timeline. Route enterprise leads differently.", icon: "💼" },
+]
+
 const FlowBuilderPage = () => {
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const navigate = useNavigate()
     const flowId = searchParams.get('id')
     const agentId = searchParams.get('agentId')
@@ -124,52 +155,89 @@ const FlowBuilderPage = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState([])
     const [edges, setEdges, onEdgesChange] = useEdgesState([])
 
+    const [currentFlowId, setCurrentFlowId] = useState(flowId)
     const [flowName, setFlowName] = useState('New Flow')
     const [flowDescription, setFlowDescription] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
-    const [saveStatus, setSaveStatus] = useState('') // 'saving', 'saved', 'error'
+    const [saveStatus, setSaveStatus] = useState('')
 
     const [selectedNode, setSelectedNode] = useState(null)
     const [showNodePanel, setShowNodePanel] = useState(false)
-    const [showTemplates, setShowTemplates] = useState(false)
-    const [templates, setTemplates] = useState([])
+    
+    // Flow Selection State
+    const [showFlowSelector, setShowFlowSelector] = useState(false)
+    const [existingFlows, setExistingFlows] = useState([])
+    const [loadingFlows, setLoadingFlows] = useState(false)
+    
+    // AI Generator State
+    const [showAIGenerator, setShowAIGenerator] = useState(false)
+    const [aiPrompt, setAiPrompt] = useState('')
+    const [aiFlowName, setAiFlowName] = useState('')
+    const [isGenerating, setIsGenerating] = useState(false)
+    const [generateError, setGenerateError] = useState('')
+    const [generateSuccess, setGenerateSuccess] = useState('')
 
-    // History for undo/redo
-    const [history, setHistory] = useState([])
-    const [historyIndex, setHistoryIndex] = useState(-1)
+    // Check for existing flows on mount
+    useEffect(() => {
+        const checkExistingFlows = async () => {
+            if (!agentId || flowId) {
+                // If we already have a flowId, just load it
+                return
+            }
+
+            try {
+                setLoadingFlows(true)
+                const flows = await flowApi.listFlows(agentId)
+                
+                if (flows && flows.length > 0) {
+                    setExistingFlows(flows)
+                    setShowFlowSelector(true)
+                }
+            } catch (err) {
+                console.error('Error checking flows:', err)
+            } finally {
+                setLoadingFlows(false)
+            }
+        }
+
+        checkExistingFlows()
+    }, [agentId, flowId])
 
     // Load flow data
     useEffect(() => {
         const loadData = async () => {
+            // Don't load if showing flow selector
+            if (showFlowSelector) {
+                setIsLoading(false)
+                return
+            }
+
             try {
                 setIsLoading(true)
+                const idToLoad = currentFlowId || flowId
 
-                if (flowId) {
-                    // Load existing flow
-                    const flow = await flowApi.getFlow(flowId)
+                if (idToLoad) {
+                    console.log('Loading flow:', idToLoad)
+                    const flow = await flowApi.getFlow(idToLoad)
                     setFlowName(flow.name)
                     setFlowDescription(flow.description || '')
                     setNodes(flow.nodes || [])
                     setEdges(flow.edges || [])
+                    console.log('Flow loaded:', flow.name, 'Nodes:', flow.nodes?.length)
                 } else {
                     // New flow - set default start node
                     const defaultNodes = [
                         {
                             id: 'start-1',
                             type: 'start',
-                            position: { x: 250, y: 50 },
+                            position: { x: 400, y: 50 },
                             data: { label: 'Start' }
                         }
                     ]
                     setNodes(defaultNodes)
                     setEdges([])
                 }
-
-                // Load templates
-                const templatesRes = await flowApi.getTemplates()
-                setTemplates(templatesRes.templates || [])
-
             } catch (err) {
                 console.error('Error loading flow:', err)
             } finally {
@@ -178,18 +246,45 @@ const FlowBuilderPage = () => {
         }
 
         loadData()
-    }, [flowId])
+    }, [flowId, currentFlowId, showFlowSelector])
 
-    // Auto-save
-    useEffect(() => {
-        if (!flowId || isLoading) return
+    // Select existing flow
+    const selectFlow = (flow) => {
+        setCurrentFlowId(flow.id)
+        setSearchParams({ id: flow.id, agentId })
+        setShowFlowSelector(false)
+    }
 
-        const autoSave = setTimeout(async () => {
-            await handleSave()
-        }, 2000)
+    // Create new flow
+    const createNewFlow = () => {
+        setCurrentFlowId(null)
+        setFlowName('New Flow')
+        setFlowDescription('')
+        setNodes([
+            {
+                id: 'start-1',
+                type: 'start',
+                position: { x: 400, y: 50 },
+                data: { label: 'Start' }
+            }
+        ])
+        setEdges([])
+        setShowFlowSelector(false)
+    }
 
-        return () => clearTimeout(autoSave)
-    }, [nodes, edges])
+    // Delete flow
+    const deleteFlow = async (flowIdToDelete, e) => {
+        e.stopPropagation()
+        if (!confirm('Are you sure you want to delete this flow?')) return
+
+        try {
+            await flowApi.deleteFlow(flowIdToDelete)
+            setExistingFlows(flows => flows.filter(f => f.id !== flowIdToDelete))
+        } catch (err) {
+            console.error('Error deleting flow:', err)
+            alert('Failed to delete flow')
+        }
+    }
 
     // Handle edge connection
     const onConnect = useCallback(
@@ -210,36 +305,15 @@ const FlowBuilderPage = () => {
         setShowNodePanel(true)
     }, [])
 
-    // Handle pane click (deselect)
+    // Handle pane click
     const onPaneClick = useCallback(() => {
         setSelectedNode(null)
         setShowNodePanel(false)
     }, [])
 
-    // Add new node
-    const addNode = (type) => {
-        const newNode = {
-            id: `${type}-${Date.now()}`,
-            type,
-            position: {
-                x: Math.random() * 300 + 100,
-                y: Math.random() * 300 + 100,
-            },
-            data: {
-                label: type.charAt(0).toUpperCase() + type.slice(1),
-                content: '',
-            }
-        }
-        setNodes((nds) => [...nds, newNode])
-    }
-
     // Delete selected node
     const deleteSelectedNode = () => {
-        if (!selectedNode) return
-        if (selectedNode.type === 'start') {
-            alert('Cannot delete the start node')
-            return
-        }
+        if (!selectedNode || selectedNode.type === 'start') return
         setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id))
         setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id))
         setSelectedNode(null)
@@ -247,9 +321,7 @@ const FlowBuilderPage = () => {
     }
 
     // Update node data
-    // Update node data
     const updateNodeData = (nodeId, newData) => {
-        // First update the nodes array
         setNodes((nds) =>
             nds.map((node) => {
                 if (node.id === nodeId) {
@@ -258,8 +330,6 @@ const FlowBuilderPage = () => {
                 return node
             })
         )
-
-        // Also update selectedNode so the panel shows updated values
         setSelectedNode((prev) => {
             if (prev && prev.id === nodeId) {
                 return { ...prev, data: { ...prev.data, ...newData } }
@@ -275,9 +345,10 @@ const FlowBuilderPage = () => {
             setSaveStatus('saving')
 
             const viewport = reactFlowInstance?.getViewport() || { x: 0, y: 0, zoom: 1 }
+            const idToSave = currentFlowId || flowId
 
-            if (flowId) {
-                await flowApi.updateFlow(flowId, {
+            if (idToSave) {
+                await flowApi.updateFlow(idToSave, {
                     name: flowName,
                     description: flowDescription,
                     nodes,
@@ -292,8 +363,8 @@ const FlowBuilderPage = () => {
                     nodes,
                     edges
                 })
-                // Navigate to the new flow
-                navigate(`/dashboard/flow-builder?id=${newFlow.id}`, { replace: true })
+                setCurrentFlowId(newFlow.id)
+                setSearchParams({ id: newFlow.id, agentId })
             }
 
             setSaveStatus('saved')
@@ -308,13 +379,15 @@ const FlowBuilderPage = () => {
 
     // Activate flow
     const handleActivate = async () => {
-        if (!flowId) {
+        const idToActivate = currentFlowId || flowId
+        
+        if (!idToActivate) {
             await handleSave()
             return
         }
 
         try {
-            await flowApi.activateFlow(flowId)
+            await flowApi.activateFlow(idToActivate)
             alert('Flow activated successfully!')
         } catch (err) {
             console.error('Error activating flow:', err)
@@ -322,16 +395,66 @@ const FlowBuilderPage = () => {
         }
     }
 
-    // Load template
-    const loadTemplate = (template) => {
-        setNodes(template.nodes)
-        setEdges(template.edges)
-        setFlowName(template.name)
-        setFlowDescription(template.description)
-        setShowTemplates(false)
+    // AI Generate Flow
+    const handleAIGenerate = async () => {
+        if (!aiPrompt.trim()) {
+            setGenerateError('Please describe the flow you want to create')
+            return
+        }
+
+        if (!agentId) {
+            setGenerateError('Agent ID is required to generate a flow')
+            return
+        }
+
+        setIsGenerating(true)
+        setGenerateError('')
+        setGenerateSuccess('')
+
+        try {
+            const data = await flowApi.generateFlow({
+                prompt: aiPrompt,
+                agent_id: agentId,
+                flow_name: aiFlowName || undefined
+            })
+
+            console.log('AI Generated flow:', data)
+
+            setNodes(data.nodes || [])
+            setEdges(data.edges || [])
+            setFlowName(data.name || 'AI Generated Flow')
+            setFlowDescription(data.description || '')
+            
+            if (data.id) {
+                setCurrentFlowId(data.id)
+                setSearchParams({ id: data.id, agentId })
+            }
+
+            setGenerateSuccess(`✨ Generated "${data.name}" with ${data.node_count || data.nodes?.length} nodes!`)
+
+            setTimeout(() => {
+                setShowAIGenerator(false)
+                setAiPrompt('')
+                setAiFlowName('')
+                setGenerateSuccess('')
+                setGenerateError('')
+            }, 1500)
+
+        } catch (err) {
+            console.error('AI Generation error:', err)
+            setGenerateError(err.message)
+        } finally {
+            setIsGenerating(false)
+        }
     }
 
-    // Drag and drop from palette
+    // Use example prompt
+    const useExamplePrompt = (example) => {
+        setAiPrompt(example.prompt)
+        setAiFlowName(example.title + ' Flow')
+    }
+
+    // Drag and drop
     const onDragStart = (event, nodeType) => {
         event.dataTransfer.setData('application/reactflow', nodeType)
         event.dataTransfer.effectAllowed = 'move'
@@ -345,7 +468,6 @@ const FlowBuilderPage = () => {
     const onDrop = useCallback(
         (event) => {
             event.preventDefault()
-
             const type = event.dataTransfer.getData('application/reactflow')
             if (!type || !reactFlowInstance) return
 
@@ -366,10 +488,131 @@ const FlowBuilderPage = () => {
         [reactFlowInstance]
     )
 
-    if (isLoading) {
+    // Fit view when nodes change significantly
+    useEffect(() => {
+        if (reactFlowInstance && nodes.length > 1) {
+            setTimeout(() => {
+                reactFlowInstance.fitView({ padding: 0.2 })
+            }, 100)
+        }
+    }, [nodes.length, reactFlowInstance])
+
+    if (isLoading || loadingFlows) {
         return (
             <div className="flex items-center justify-center h-screen bg-neutral-50">
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+            </div>
+        )
+    }
+
+    // Flow Selector Modal
+    if (showFlowSelector) {
+        return (
+            <div className="h-screen bg-neutral-100 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-primary-50 to-purple-50">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-neutral-900">Conversation Flows</h2>
+                                <p className="text-sm text-neutral-500">Select an existing flow or create a new one</p>
+                            </div>
+                            <button
+                                onClick={() => navigate(-1)}
+                                className="p-2 hover:bg-white/50 rounded-lg"
+                            >
+                                <X className="w-5 h-5 text-neutral-500" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6 overflow-y-auto max-h-[60vh]">
+                        {/* Create New Flow Button */}
+                        <button
+                            onClick={createNewFlow}
+                            className="w-full mb-4 p-4 border-2 border-dashed border-primary-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all flex items-center justify-center gap-3 group"
+                        >
+                            <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center group-hover:bg-primary-200">
+                                <Plus className="w-5 h-5 text-primary-600" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-semibold text-primary-700">Create New Flow</p>
+                                <p className="text-sm text-primary-500">Start from scratch</p>
+                            </div>
+                        </button>
+
+                        {/* AI Generate Button */}
+                        <button
+                            onClick={() => {
+                                setShowFlowSelector(false)
+                                setShowAIGenerator(true)
+                            }}
+                            className="w-full mb-6 p-4 bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl hover:from-violet-600 hover:to-purple-700 transition-all flex items-center justify-center gap-3 text-white"
+                        >
+                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <Wand2 className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-semibold">Generate with AI</p>
+                                <p className="text-sm text-white/80">Describe your flow in plain English</p>
+                            </div>
+                        </button>
+
+                        {/* Existing Flows */}
+                        {existingFlows.length > 0 && (
+                            <>
+                                <h3 className="text-sm font-semibold text-neutral-500 mb-3">EXISTING FLOWS</h3>
+                                <div className="space-y-2">
+                                    {existingFlows.map((flow) => (
+                                        <div
+                                            key={flow.id}
+                                            onClick={() => selectFlow(flow)}
+                                            className="p-4 border border-neutral-200 rounded-xl hover:border-primary-300 hover:shadow-md cursor-pointer transition-all group"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center group-hover:bg-primary-100">
+                                                        <FileText className="w-5 h-5 text-neutral-500 group-hover:text-primary-600" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-semibold text-neutral-800">{flow.name}</p>
+                                                            {flow.is_active && (
+                                                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full flex items-center gap-1">
+                                                                    <CheckCircle2 className="w-3 h-3" />
+                                                                    Active
+                                                                </span>
+                                                            )}
+                                                            {flow.is_draft && (
+                                                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
+                                                                    Draft
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-3 text-xs text-neutral-500">
+                                                            <span>{flow.nodes?.length || 0} nodes</span>
+                                                            <span className="flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" />
+                                                                {new Date(flow.updated_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => deleteFlow(flow.id, e)}
+                                                    className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
         )
     }
@@ -404,16 +647,35 @@ const FlowBuilderPage = () => {
                                 <Check className="w-3 h-3" /> Saved
                             </span>
                         )}
+                        <span className="text-xs text-neutral-400 ml-2">
+                            {nodes.length} nodes
+                        </span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Show Flows Button */}
                     <button
-                        onClick={() => setShowTemplates(true)}
-                        className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg hover:bg-neutral-50"
+                        onClick={async () => {
+                            const flows = await flowApi.listFlows(agentId)
+                            setExistingFlows(flows || [])
+                            setShowFlowSelector(true)
+                        }}
+                        className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg hover:bg-neutral-50 flex items-center gap-2"
                     >
-                        Templates
+                        <FileText className="w-4 h-4" />
+                        Flows
                     </button>
+
+                    {/* AI Generate Button */}
+                    <button
+                        onClick={() => setShowAIGenerator(true)}
+                        className="px-4 py-1.5 text-sm bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg hover:from-violet-600 hover:to-purple-700 flex items-center gap-2 shadow-md shadow-purple-200"
+                    >
+                        <Wand2 className="w-4 h-4" />
+                        AI Generate
+                    </button>
+                    
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
@@ -434,17 +696,17 @@ const FlowBuilderPage = () => {
 
             <div className="flex-1 flex">
                 {/* Left Sidebar - Node Palette */}
-                <div className="w-64 bg-white border-r border-neutral-200 p-4">
+                <div className="w-64 bg-white border-r border-neutral-200 p-4 overflow-y-auto">
                     <h3 className="text-sm font-semibold text-neutral-700 mb-3">Nodes</h3>
                     <p className="text-xs text-neutral-500 mb-4">Drag nodes to the canvas</p>
 
                     <div className="space-y-2">
-                        {nodeTypes_palette.map((item) => (
+                        {nodePalette.map((item) => (
                             <div
                                 key={item.type}
                                 draggable
                                 onDragStart={(e) => onDragStart(e, item.type)}
-                                className="flex items-center gap-3 p-3 bg-neutral-50 rounded-lg cursor-grab hover:bg-neutral-100 transition-colors border border-neutral-200"
+                                className="flex items-center gap-3 p-3 bg-neutral-50 rounded-lg cursor-grab hover:bg-neutral-100 transition-colors border border-neutral-200 active:cursor-grabbing"
                             >
                                 <div className={`w-8 h-8 ${item.color} rounded-lg flex items-center justify-center`}>
                                     <item.icon className="w-4 h-4 text-white" />
@@ -455,6 +717,24 @@ const FlowBuilderPage = () => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Quick AI Generate */}
+                    <div className="mt-6 p-4 bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl border border-purple-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Sparkles className="w-4 h-4 text-purple-600" />
+                            <span className="text-sm font-semibold text-purple-800">AI Flow Generator</span>
+                        </div>
+                        <p className="text-xs text-purple-600 mb-3">
+                            Describe your flow in plain English!
+                        </p>
+                        <button
+                            onClick={() => setShowAIGenerator(true)}
+                            className="w-full py-2 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-medium rounded-lg hover:from-violet-600 hover:to-purple-700 flex items-center justify-center gap-2"
+                        >
+                            <Wand2 className="w-4 h-4" />
+                            Generate with AI
+                        </button>
                     </div>
                 </div>
 
@@ -513,20 +793,19 @@ const FlowBuilderPage = () => {
                         </div>
 
                         <div className="space-y-4">
-                            {/* Node Type Badge */}
                             <div className="flex items-center gap-2">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${selectedNode.type === 'start' ? 'bg-green-100 text-green-700' :
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    selectedNode.type === 'start' ? 'bg-green-100 text-green-700' :
                                     selectedNode.type === 'message' ? 'bg-blue-100 text-blue-700' :
-                                        selectedNode.type === 'question' ? 'bg-purple-100 text-purple-700' :
-                                            selectedNode.type === 'condition' ? 'bg-amber-100 text-amber-700' :
-                                                selectedNode.type === 'action' ? 'bg-orange-100 text-orange-700' :
-                                                    'bg-red-100 text-red-700'
-                                    }`}>
+                                    selectedNode.type === 'question' ? 'bg-purple-100 text-purple-700' :
+                                    selectedNode.type === 'condition' ? 'bg-amber-100 text-amber-700' :
+                                    selectedNode.type === 'action' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-red-100 text-red-700'
+                                }`}>
                                     {selectedNode.type.toUpperCase()}
                                 </span>
                             </div>
 
-                            {/* Label */}
                             <div>
                                 <label className="block text-xs font-medium text-neutral-600 mb-1">Label</label>
                                 <input
@@ -537,175 +816,103 @@ const FlowBuilderPage = () => {
                                 />
                             </div>
 
-                            {/* Content (for message/question nodes) */}
                             {['message', 'question'].includes(selectedNode.type) && (
                                 <div>
                                     <label className="block text-xs font-medium text-neutral-600 mb-1">
-                                        {selectedNode.type === 'message' ? 'Message Content' : 'Question Text'}
+                                        {selectedNode.type === 'message' ? 'Message' : 'Question'}
                                     </label>
                                     <textarea
-                                        value={selectedNode.data.content || ''}
-                                        onChange={(e) => updateNodeData(selectedNode.id, { content: e.target.value })}
+                                        value={selectedNode.data.content || selectedNode.data.message || selectedNode.data.question || ''}
+                                        onChange={(e) => updateNodeData(selectedNode.id, { 
+                                            content: e.target.value,
+                                            message: e.target.value,
+                                            question: e.target.value 
+                                        })}
                                         rows={4}
                                         className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                        placeholder={selectedNode.type === 'message' ? 'Enter the message to send...' : 'Enter your question...'}
+                                        placeholder={selectedNode.type === 'message' ? 'Enter message...' : 'Enter question...'}
                                     />
-                                    <p className="text-xs text-neutral-400 mt-1">
-                                        Use {'{{variable_name}}'} to insert variables
-                                    </p>
                                 </div>
                             )}
 
-                            {/* Variable name (for question nodes) */}
                             {selectedNode.type === 'question' && (
                                 <>
                                     <div>
-                                        <label className="block text-xs font-medium text-neutral-600 mb-1">Save Answer To Variable</label>
+                                        <label className="block text-xs font-medium text-neutral-600 mb-1">Save Answer As</label>
                                         <input
                                             type="text"
-                                            value={selectedNode.data.variable_name || ''}
-                                            onChange={(e) => updateNodeData(selectedNode.id, { variable_name: e.target.value })}
-                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                            placeholder="e.g., user_name"
+                                            value={selectedNode.data.saveAs || selectedNode.data.variable_name || ''}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { saveAs: e.target.value, variable_name: e.target.value })}
+                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
+                                            placeholder="e.g., user_email"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-medium text-neutral-600 mb-1">Expected Answer Type</label>
+                                        <label className="block text-xs font-medium text-neutral-600 mb-1">Input Type</label>
                                         <select
-                                            value={selectedNode.data.expected_type || 'text'}
-                                            onChange={(e) => updateNodeData(selectedNode.id, { expected_type: e.target.value })}
-                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                            value={selectedNode.data.inputType || selectedNode.data.expected_type || 'text'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { inputType: e.target.value, expected_type: e.target.value })}
+                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
                                         >
-                                            <option value="text">Free Text</option>
-                                            <option value="number">Number</option>
-                                            <option value="yes_no">Yes/No</option>
+                                            <option value="text">Text</option>
                                             <option value="email">Email</option>
-                                            <option value="phone">Phone</option>
+                                            <option value="tel">Phone</option>
+                                            <option value="date">Date</option>
+                                            <option value="number">Number</option>
                                             <option value="choice">Multiple Choice</option>
                                         </select>
                                     </div>
 
-                                    {selectedNode.data.expected_type === 'choice' && (
+                                    {(selectedNode.data.inputType === 'choice' || selectedNode.data.expected_type === 'choice' || selectedNode.data.options) && (
                                         <div>
-                                            <label className="block text-xs font-medium text-neutral-600 mb-1">Choices (one per line)</label>
+                                            <label className="block text-xs font-medium text-neutral-600 mb-1">Options</label>
                                             <textarea
-                                                value={(selectedNode.data.choices || []).join('\n')}
-                                                onChange={(e) => updateNodeData(selectedNode.id, { choices: e.target.value.split('\n').filter(c => c.trim()) })}
+                                                value={(selectedNode.data.options || selectedNode.data.choices || []).join('\n')}
+                                                onChange={(e) => {
+                                                    const options = e.target.value.split('\n').filter(c => c.trim())
+                                                    updateNodeData(selectedNode.id, { options, choices: options })
+                                                }}
                                                 rows={3}
-                                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                                placeholder="Option 1&#10;Option 2&#10;Option 3"
+                                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
+                                                placeholder="Option 1&#10;Option 2"
                                             />
                                         </div>
                                     )}
                                 </>
                             )}
 
-                            {/* Conditions (for condition nodes) */}
                             {selectedNode.type === 'condition' && (
                                 <div>
-                                    <label className="block text-xs font-medium text-neutral-600 mb-1">Condition</label>
-                                    <div className="space-y-2">
-                                        <input
-                                            type="text"
-                                            value={selectedNode.data.conditions?.[0]?.variable || ''}
-                                            onChange={(e) => updateNodeData(selectedNode.id, {
-                                                conditions: [{ ...selectedNode.data.conditions?.[0], variable: e.target.value }]
-                                            })}
-                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
-                                            placeholder="Variable name"
-                                        />
-                                        <select
-                                            value={selectedNode.data.conditions?.[0]?.operator || 'equals'}
-                                            onChange={(e) => updateNodeData(selectedNode.id, {
-                                                conditions: [{ ...selectedNode.data.conditions?.[0], operator: e.target.value }]
-                                            })}
-                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
-                                        >
-                                            <option value="equals">Equals</option>
-                                            <option value="not_equals">Not Equals</option>
-                                            <option value="contains">Contains</option>
-                                            <option value="greater_than">Greater Than</option>
-                                            <option value="less_than">Less Than</option>
-                                        </select>
-                                        <input
-                                            type="text"
-                                            value={selectedNode.data.conditions?.[0]?.value || ''}
-                                            onChange={(e) => updateNodeData(selectedNode.id, {
-                                                conditions: [{ ...selectedNode.data.conditions?.[0], value: e.target.value }]
-                                            })}
-                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
-                                            placeholder="Value to compare"
-                                        />
-                                    </div>
+                                    <label className="block text-xs font-medium text-neutral-600 mb-1">Check Variable</label>
+                                    <input
+                                        type="text"
+                                        value={selectedNode.data.condition || ''}
+                                        onChange={(e) => updateNodeData(selectedNode.id, { condition: e.target.value })}
+                                        className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
+                                        placeholder="Variable name"
+                                    />
                                 </div>
                             )}
 
-                            {/* Action config (for action nodes) */}
                             {selectedNode.type === 'action' && (
                                 <>
                                     <div>
                                         <label className="block text-xs font-medium text-neutral-600 mb-1">Action Type</label>
                                         <select
-                                            value={selectedNode.data.action_type || 'webhook'}
-                                            onChange={(e) => updateNodeData(selectedNode.id, { action_type: e.target.value })}
-                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                            value={selectedNode.data.actionType || selectedNode.data.action_type || 'save_lead'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { actionType: e.target.value, action_type: e.target.value })}
+                                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
                                         >
-                                            <option value="webhook">Call Webhook</option>
-                                            <option value="set_variable">Set Variable</option>
-                                            <option value="transfer">Transfer Call</option>
+                                            <option value="save_lead">Save Lead</option>
                                             <option value="send_email">Send Email</option>
-                                            <option value="send_sms">Send SMS</option>
+                                            <option value="book_appointment">Book Appointment</option>
+                                            <option value="webhook">Call Webhook</option>
                                         </select>
                                     </div>
-
-                                    {selectedNode.data.action_type === 'webhook' && (
-                                        <div>
-                                            <label className="block text-xs font-medium text-neutral-600 mb-1">Webhook URL</label>
-                                            <input
-                                                type="text"
-                                                value={selectedNode.data.action_config?.url || ''}
-                                                onChange={(e) => updateNodeData(selectedNode.id, {
-                                                    action_config: { ...selectedNode.data.action_config, url: e.target.value }
-                                                })}
-                                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
-                                                placeholder="https://..."
-                                            />
-                                        </div>
-                                    )}
-
-                                    {selectedNode.data.action_type === 'set_variable' && (
-                                        <>
-                                            <div>
-                                                <label className="block text-xs font-medium text-neutral-600 mb-1">Variable Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={selectedNode.data.action_config?.variable || ''}
-                                                    onChange={(e) => updateNodeData(selectedNode.id, {
-                                                        action_config: { ...selectedNode.data.action_config, variable: e.target.value }
-                                                    })}
-                                                    className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
-                                                    placeholder="variable_name"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-neutral-600 mb-1">Value</label>
-                                                <input
-                                                    type="text"
-                                                    value={selectedNode.data.action_config?.value || ''}
-                                                    onChange={(e) => updateNodeData(selectedNode.id, {
-                                                        action_config: { ...selectedNode.data.action_config, value: e.target.value }
-                                                    })}
-                                                    className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg"
-                                                    placeholder="value"
-                                                />
-                                            </div>
-                                        </>
-                                    )}
                                 </>
                             )}
 
-                            {/* Delete button */}
                             {selectedNode.type !== 'start' && (
                                 <button
                                     onClick={deleteSelectedNode}
@@ -720,31 +927,118 @@ const FlowBuilderPage = () => {
                 )}
             </div>
 
-            {/* Templates Modal */}
-            {showTemplates && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-semibold">Flow Templates</h2>
-                            <button onClick={() => setShowTemplates(false)} className="p-2 hover:bg-neutral-100 rounded-lg">
-                                <X className="w-5 h-5" />
-                            </button>
+            {/* AI Flow Generator Modal */}
+            {showAIGenerator && (
+                <div className="fixed inset-0 z-50 overflow-hidden">
+                    <div 
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        onClick={() => !isGenerating && setShowAIGenerator(false)}
+                    />
+                    
+                    <div className="absolute inset-4 md:inset-y-10 md:inset-x-20 lg:inset-x-40 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-violet-50 via-purple-50 to-fuchsia-50">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200">
+                                        <Wand2 className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-neutral-900">AI Flow Generator</h2>
+                                        <p className="text-sm text-neutral-500">Describe your flow in plain English</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => !isGenerating && setShowAIGenerator(false)}
+                                    className="p-2 hover:bg-white/50 rounded-lg"
+                                    disabled={isGenerating}
+                                >
+                                    <X className="w-5 h-5 text-neutral-500" />
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            {templates.map((template) => (
-                                <div
-                                    key={template.id}
-                                    className="p-4 border border-neutral-200 rounded-xl hover:border-primary-500 cursor-pointer transition-colors"
-                                    onClick={() => loadTemplate(template)}
-                                >
-                                    <h3 className="font-medium text-neutral-900">{template.name}</h3>
-                                    <p className="text-sm text-neutral-500 mt-1">{template.description}</p>
-                                    <span className="inline-block mt-2 px-2 py-1 text-xs bg-neutral-100 text-neutral-600 rounded">
-                                        {template.category}
-                                    </span>
+                        <div className="flex-1 flex overflow-hidden">
+                            <div className="flex-1 p-6 overflow-y-auto">
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-neutral-700 mb-2">Flow Name (optional)</label>
+                                    <input
+                                        type="text"
+                                        value={aiFlowName}
+                                        onChange={(e) => setAiFlowName(e.target.value)}
+                                        placeholder="e.g., Lead Capture Flow"
+                                        className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        disabled={isGenerating}
+                                    />
                                 </div>
-                            ))}
+
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-neutral-700 mb-2">Describe your conversation flow</label>
+                                    <textarea
+                                        value={aiPrompt}
+                                        onChange={(e) => setAiPrompt(e.target.value)}
+                                        placeholder="Example: Create a flow that welcomes visitors, asks what service they're interested in..."
+                                        rows={8}
+                                        className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                                        disabled={isGenerating}
+                                    />
+                                </div>
+
+                                {generateError && (
+                                    <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600">
+                                        <AlertCircle className="w-5 h-5" />
+                                        <span className="text-sm">{generateError}</span>
+                                    </div>
+                                )}
+
+                                {generateSuccess && (
+                                    <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2 text-green-600">
+                                        <Check className="w-5 h-5" />
+                                        <span className="text-sm">{generateSuccess}</span>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleAIGenerate}
+                                    disabled={isGenerating || !aiPrompt.trim()}
+                                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isGenerating ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-5 h-5" />
+                                            Generate Flow
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="w-80 border-l border-neutral-200 bg-neutral-50 p-4 overflow-y-auto">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Lightbulb className="w-5 h-5 text-amber-500" />
+                                    <h3 className="font-semibold text-neutral-700">Examples</h3>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {EXAMPLE_PROMPTS.map((example, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => useExamplePrompt(example)}
+                                            className="w-full text-left p-3 bg-white border border-neutral-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all group"
+                                            disabled={isGenerating}
+                                        >
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xl">{example.icon}</span>
+                                                <span className="font-medium text-neutral-800 group-hover:text-purple-600">{example.title}</span>
+                                            </div>
+                                            <p className="text-xs text-neutral-500 line-clamp-2">{example.prompt}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -753,7 +1047,6 @@ const FlowBuilderPage = () => {
     )
 }
 
-// Wrap with ReactFlowProvider
 const FlowBuilderPageWrapper = () => (
     <ReactFlowProvider>
         <FlowBuilderPage />
