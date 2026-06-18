@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { agentsApi } from '@/services/api'
 import {
   ArrowLeft, Phone, PhoneOff, Mic, MicOff, Volume2, MessageSquare, Bot,
-  Loader2, Save, Code, Globe, Cpu, AlertCircle
+  Loader2, Save, Code, Globe, Cpu, AlertCircle, Copy, Check, ExternalLink,
+  Zap, Shield, Palette, ChevronDown,
 } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -371,6 +372,317 @@ const TestAudioPanel = ({ agent }) => {
 }
 
 // =================== SETTINGS PANEL ===================
+// =================== EMBED SECTION (Point 12) ===================
+const EmbedSection = ({ agent }) => {
+  const [copied, setCopied] = useState(null)
+  const [embedStyle, setEmbedStyle] = useState('bubble')
+  const [primaryColor, setPrimaryColor] = useState('#6366f1')
+  const [position, setPosition] = useState('bottom-right')
+  const [showPreview, setShowPreview] = useState(false)
+  const [activeTab, setActiveTab] = useState('chat')
+  const apiBase = API_URL
+
+  const copy = (text, key) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key)
+      setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  const CopyBtn = ({ text, id }) => (
+    <button
+      onClick={() => copy(text, id)}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        copied === id
+          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+          : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border border-neutral-200'
+      }`}
+    >
+      {copied === id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied === id ? 'Copied!' : 'Copy'}
+    </button>
+  )
+
+  // Generate embed codes
+  const scriptTag = `<!-- ConvoHubAI Chat Widget -->
+<script>
+  window.ConvoHubAI = {
+    agentId: "${agent?.id || 'YOUR_AGENT_ID'}",
+    primaryColor: "${primaryColor}",
+    position: "${position}",
+    style: "${embedStyle}",
+  };
+</script>
+<script src="${apiBase}/widget/v1/chat.js" async></script>`
+
+  const iframeEmbed = `<iframe
+  src="${apiBase}/embed/chat/${agent?.id || 'YOUR_AGENT_ID'}?color=${encodeURIComponent(primaryColor)}&style=${embedStyle}"
+  width="400"
+  height="600"
+  frameborder="0"
+  allow="microphone; camera"
+  style="border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.12);"
+  title="${agent?.name || 'AI Chat'}"
+></iframe>`
+
+  const reactComponent = `import { useEffect } from 'react';
+
+// Install: npm install @convohubai/react
+import { ConvoHubWidget } from '@convohubai/react';
+
+export default function App() {
+  return (
+    <ConvoHubWidget
+      agentId="${agent?.id || 'YOUR_AGENT_ID'}"
+      primaryColor="${primaryColor}"
+      position="${position}"
+      style="${embedStyle}"
+      greeting="${agent?.welcome_message?.slice(0, 80) || 'Hi! How can I help you?'}"
+    />
+  );
+}`
+
+  const curlTest = `# Test your agent via API
+curl -X POST ${apiBase}/api/v1/chat/send \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "agent_id": "${agent?.id || 'YOUR_AGENT_ID'}",
+    "message": "Hello, I need help"
+  }'`
+
+  const embedTabs = [
+    { id: 'chat', label: 'Chat Widget', icon: '💬' },
+    { id: 'iframe', label: 'iFrame', icon: '🪟' },
+    { id: 'react', label: 'React SDK', icon: '⚛️' },
+    { id: 'api', label: 'REST API', icon: '🔌' },
+  ]
+
+  return (
+    <div className="mt-2 border-t-2 border-dashed border-neutral-200 pt-6 space-y-5">
+
+      {/* Section header */}
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center">
+          <Code className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-base font-black text-neutral-900">Deploy & Embed</h3>
+          <p className="text-xs text-neutral-500">Add this agent to your website, app, or call it via API</p>
+        </div>
+      </div>
+
+      {/* Customisation controls */}
+      <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-5 space-y-4">
+        <p className="text-xs font-bold text-violet-700 uppercase tracking-widest">Widget Customisation</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-neutral-700 mb-1.5 block">Style</label>
+            <select
+              value={embedStyle}
+              onChange={e => setEmbedStyle(e.target.value)}
+              className="w-full px-3 py-2.5 border border-neutral-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+            >
+              <option value="bubble">Floating Bubble</option>
+              <option value="fullpage">Full Page</option>
+              <option value="inline">Inline / Embedded</option>
+              <option value="sidebar">Side Drawer</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-neutral-700 mb-1.5 block">Position</label>
+            <select
+              value={position}
+              onChange={e => setPosition(e.target.value)}
+              className="w-full px-3 py-2.5 border border-neutral-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+            >
+              <option value="bottom-right">Bottom Right</option>
+              <option value="bottom-left">Bottom Left</option>
+              <option value="top-right">Top Right</option>
+              <option value="center">Center</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-neutral-700 mb-1.5 block flex items-center gap-1.5">
+              <Palette className="w-3 h-3" />Primary Colour
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={e => setPrimaryColor(e.target.value)}
+                className="w-10 h-10 rounded-lg border border-neutral-200 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={primaryColor}
+                onChange={e => setPrimaryColor(e.target.value)}
+                className="flex-1 px-3 py-2.5 border border-neutral-200 rounded-xl text-sm font-mono bg-white focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col justify-end">
+            <button
+              onClick={() => setShowPreview(!showPreview)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {showPreview ? 'Hide' : 'Live'} Preview
+            </button>
+          </div>
+        </div>
+
+        {/* Live preview mock */}
+        {showPreview && (
+          <div className="relative bg-white border border-neutral-200 rounded-2xl overflow-hidden" style={{ height: '280px' }}>
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+              <p className="text-slate-400 text-sm">← Your website would be here</p>
+            </div>
+            {/* Bubble preview */}
+            {embedStyle === 'bubble' && (
+              <div className={`absolute ${position.includes('right') ? 'right-4' : 'left-4'} ${position.includes('bottom') ? 'bottom-4' : 'top-4'}`}>
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center shadow-2xl cursor-pointer text-white text-2xl"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  💬
+                </div>
+              </div>
+            )}
+            {/* Inline preview */}
+            {embedStyle === 'inline' && (
+              <div className="absolute inset-4 bg-white rounded-2xl border border-neutral-200 shadow-lg flex flex-col overflow-hidden">
+                <div className="px-4 py-3 text-white text-sm font-bold flex items-center gap-2" style={{ backgroundColor: primaryColor }}>
+                  <Bot className="w-4 h-4" />
+                  {agent?.name || 'AI Assistant'}
+                </div>
+                <div className="flex-1 p-3 space-y-2">
+                  <div className="bg-neutral-100 rounded-xl rounded-tl-sm px-3 py-2 text-xs text-neutral-700 max-w-[80%]">
+                    {agent?.welcome_message?.slice(0, 60) || 'Hi! How can I help you today?'}
+                  </div>
+                </div>
+                <div className="px-3 py-2 border-t border-neutral-100 flex gap-2">
+                  <div className="flex-1 bg-neutral-100 rounded-lg h-8" />
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs" style={{ backgroundColor: primaryColor }}>→</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Code tabs */}
+      <div>
+        <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl mb-4 overflow-x-auto">
+          {embedTabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === tab.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Code blocks */}
+        {activeTab === 'chat' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-neutral-800">Add to your website</p>
+                <p className="text-xs text-neutral-500">Paste this before the closing &lt;/body&gt; tag</p>
+              </div>
+              <CopyBtn text={scriptTag} id="script" />
+            </div>
+            <pre className="bg-neutral-900 text-emerald-300 text-xs p-5 rounded-2xl overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap border border-neutral-800">
+              {scriptTag}
+            </pre>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {[
+                { icon: '⚡', label: 'Loads async', sub: 'No page slowdown' },
+                { icon: '📱', label: 'Mobile ready', sub: 'Fully responsive' },
+                { icon: '🎨', label: 'White-label', sub: 'Your brand, your colours' },
+              ].map(({ icon, label, sub }) => (
+                <div key={label} className="bg-neutral-50 rounded-xl p-3 border border-neutral-100">
+                  <div className="text-xl mb-1">{icon}</div>
+                  <p className="text-xs font-bold text-neutral-700">{label}</p>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">{sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'iframe' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-neutral-800">iFrame embed</p>
+                <p className="text-xs text-neutral-500">Works with any website, CMS or landing page</p>
+              </div>
+              <CopyBtn text={iframeEmbed} id="iframe" />
+            </div>
+            <pre className="bg-neutral-900 text-sky-300 text-xs p-5 rounded-2xl overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap border border-neutral-800">
+              {iframeEmbed}
+            </pre>
+          </div>
+        )}
+
+        {activeTab === 'react' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-neutral-800">React SDK</p>
+                <p className="text-xs text-neutral-500">npm install @convohubai/react</p>
+              </div>
+              <CopyBtn text={reactComponent} id="react" />
+            </div>
+            <pre className="bg-neutral-900 text-violet-300 text-xs p-5 rounded-2xl overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap border border-neutral-800">
+              {reactComponent}
+            </pre>
+          </div>
+        )}
+
+        {activeTab === 'api' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-neutral-800">REST API</p>
+                <p className="text-xs text-neutral-500">Call your agent from any backend or service</p>
+              </div>
+              <CopyBtn text={curlTest} id="curl" />
+            </div>
+            <pre className="bg-neutral-900 text-amber-300 text-xs p-5 rounded-2xl overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap border border-neutral-800">
+              {curlTest}
+            </pre>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+              <Shield className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-blue-800">Authentication</p>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  Add <code className="bg-blue-100 px-1 rounded font-mono">Authorization: Bearer YOUR_API_KEY</code> header for production use. Generate your key in <strong>Settings → API Keys</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Agent ID */}
+      <div className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-200">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-0.5">Agent ID</p>
+          <p className="text-sm font-mono text-neutral-800 truncate">{agent?.id || '—'}</p>
+        </div>
+        <CopyBtn text={agent?.id || ''} id="agentid" />
+      </div>
+    </div>
+  )
+}
+
 const AgentSettingsPanel = ({ agent, onSave, isSaving }) => {
   const [formData, setFormData] = useState({
     name: '', description: '', system_prompt: '', welcome_message: '',
@@ -508,6 +820,9 @@ const AgentSettingsPanel = ({ agent, onSave, isSaving }) => {
       <button type="submit" disabled={isSaving} className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 font-semibold text-lg shadow-md">
         {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Save Changes
       </button>
+
+      {/* ── Point 12: White-label Embed ── */}
+      <EmbedSection agent={agent} />
     </form>
   )
 }

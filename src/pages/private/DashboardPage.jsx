@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { dashboardApi, agentsApi } from '@/services/api'
+import { dashboardApi, agentsApi, analyticsApi } from '@/services/api'
 import { 
   Phone, 
   CheckCircle, 
@@ -14,7 +14,10 @@ import {
   MessageSquare,
   Users,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  Activity,
+  BarChart3,
 } from 'lucide-react'
 
 const StatCard = ({ title, value, change, changeType, icon: Icon, iconBg, isLoading }) => (
@@ -55,6 +58,7 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null)
   const [recentCalls, setRecentCalls] = useState([])
   const [topAgents, setTopAgents] = useState([])
+  const [usageMetrics, setUsageMetrics] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState(null)
@@ -64,16 +68,34 @@ const DashboardPage = () => {
     setError(null)
     
     try {
-      // Fetch all dashboard data in parallel
-      const [statsRes, callsRes, agentsRes] = await Promise.all([
+      const [statsRes, callsRes, agentsRes, overviewRes] = await Promise.all([
         dashboardApi.getStats(),
         dashboardApi.getRecentCalls(5),
-        dashboardApi.getTopAgents(5)
+        dashboardApi.getTopAgents(5),
+        analyticsApi.getOverview('30d').catch(() => null),
       ])
       
       setStats(statsRes)
       setRecentCalls(callsRes.calls || [])
       setTopAgents(agentsRes.agents || [])
+
+      // Build usage metrics from stats + overview
+      if (statsRes || overviewRes) {
+        const totalCalls = overviewRes?.stats?.[0]?.value?.replace(',', '') || statsRes?.total_calls?.value || '0'
+        const totalCallsNum = parseInt(String(totalCalls).replace(/[^0-9]/g, '')) || 0
+
+        // Estimate voice hours from avg duration × total calls
+        const avgDurSecs = statsRes?.avg_duration_seconds || 0
+        const voiceMinutes = Math.round((totalCallsNum * avgDurSecs) / 60)
+        const voiceHours = voiceMinutes >= 60 ? `${(voiceMinutes / 60).toFixed(1)}h` : `${voiceMinutes}m`
+
+        setUsageMetrics({
+          messages: totalCallsNum.toLocaleString(),
+          voice: voiceHours,
+          agents: statsRes?.active_agents?.value || '0',
+          successRate: statsRes?.success_rate?.value || '0',
+        })
+      }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
       setError('Failed to load dashboard data. Please try again.')
@@ -174,6 +196,61 @@ const DashboardPage = () => {
           >
             <Plus className="w-5 h-5" />
             Create Agent
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Usage Metrics Strip ── */}
+      <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-white border border-neutral-200 rounded-2xl">
+        {/* Period label */}
+        <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest pr-2 border-r border-neutral-200 mr-1">
+          This month
+        </span>
+
+        {isLoading || !usageMetrics ? (
+          /* skeleton */
+          <>
+            {[1,2,3,4].map(i => (
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-50 animate-pulse">
+                <div className="w-3 h-3 bg-neutral-200 rounded" />
+                <div className="w-20 h-3 bg-neutral-200 rounded" />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700">
+              <Phone className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold tabular-nums">{usageMetrics.messages}</span>
+              <span className="text-xs text-blue-500">conversations</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 text-violet-700">
+              <Activity className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold tabular-nums">{usageMetrics.voice}</span>
+              <span className="text-xs text-violet-500">voice time</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700">
+              <Bot className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold tabular-nums">{usageMetrics.agents}</span>
+              <span className="text-xs text-emerald-500">active agents</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700">
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold tabular-nums">{usageMetrics.successRate}%</span>
+              <span className="text-xs text-amber-500">success rate</span>
+            </div>
+          </>
+        )}
+
+        {/* Right side — status + links */}
+        <div className="ml-auto flex items-center gap-3">
+          <Link to="/status" className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-700 transition-colors">
+            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            All systems operational
+          </Link>
+          <Link to="/dashboard/analytics" className="flex items-center gap-1 text-xs font-semibold text-neutral-600 hover:text-neutral-900 transition-colors">
+            <BarChart3 className="w-3.5 h-3.5" />
+            Full analytics
           </Link>
         </div>
       </div>

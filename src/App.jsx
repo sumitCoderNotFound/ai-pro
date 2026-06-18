@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { OnboardingProvider } from './context/OnboardingContext'
+import WelcomeModal from './components/onboarding/WelcomeModal'
 
 // Layouts
 import PublicLayout from './components/layout/PublicLayout'
@@ -16,10 +18,16 @@ import ForgotPasswordPage from './pages/public/ForgotPasswordPage'
 // Private/Dashboard Pages
 import DashboardPage from './pages/private/DashboardPage'
 import AgentsPage from './pages/private/AgentsPage'
+import AgentTemplatesPage from './pages/private/AgentTemplatesPage'
 import KnowledgeBasePage from './pages/private/KnowledgeBasePage'
 import CallHistoryPage from './pages/private/CallHistoryPage'
 import ChatHistoryPage from './pages/private/ChatHistoryPage'
+import ConversationInboxPage from './pages/private/ConversationInboxPage'
+import ContactProfilesPage from './pages/private/ContactProfilesPage'
+import IntegrationsMarketplacePage from './pages/private/IntegrationsMarketplacePage'
+import HumanHandoffPage from './pages/private/HumanHandoffPage'
 import AnalyticsPage from './pages/private/AnalyticsPage'
+import PerceptionDashboard from './pages/private/PerceptionDashboard'
 import SettingsPage from './pages/private/SettingsPage'
 import PhoneNumbersPage from './pages/private/PhoneNumbersPage'
 import BatchCallsPage from './pages/private/BatchCallsPage'
@@ -68,6 +76,17 @@ import FlowBuilderPage from './pages/private/FlowBuilderPage'
 import VideoCallPage from './pages/private/VideoCallPage'
 import VoiceCallPage from './pages/private/VoiceCallPage'
 import AgentDetailPage from './pages/private/AgentDetailPage'
+
+// Recruitment Pages
+import JobsPage from './pages/private/recruitment/JobsPage'
+import CandidatesPage from './pages/private/recruitment/CandidatesPage'
+import InterviewsPage from './pages/private/recruitment/InterviewsPage'
+import InterviewBuilderPage from './pages/private/recruitment/InterviewBuilderPage'
+import ResultsPage from './pages/private/recruitment/ResultsPage'
+import RecruitmentSettingsPage from './pages/private/recruitment/RecruitmentSettingsPage'
+import CandidateInterviewPage from './pages/private/recruitment/CandidateInterviewPage'
+import RecruitmentDashboardPage from './pages/private/recruitment/RecruitmentDashboardPage'
+import ShortlistPage from './pages/private/recruitment/ShortlistPage'
 
 
 // Protected Route Component
@@ -177,6 +196,7 @@ function AppRoutes() {
 
         {/* BUILD Section */}
         <Route path="/dashboard/agents" element={<AgentsPage />} />
+        <Route path="/dashboard/agents/templates" element={<AgentTemplatesPage />} />
         <Route path="/dashboard/knowledge" element={<KnowledgeBasePage />} />
 
         {/* DEPLOY Section */}
@@ -186,11 +206,26 @@ function AppRoutes() {
         {/* MONITOR Section */}
         <Route path="/dashboard/calls" element={<CallHistoryPage />} />
         <Route path="/dashboard/chats" element={<ChatHistoryPage />} />
+        <Route path="/dashboard/inbox" element={<ConversationInboxPage />} />
+        <Route path="/dashboard/contacts" element={<ContactProfilesPage />} />
+        <Route path="/dashboard/integrations" element={<IntegrationsMarketplacePage />} />
+        <Route path="/dashboard/handoff" element={<HumanHandoffPage />} />
         <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
+        <Route path="/dashboard/perception" element={<PerceptionDashboard />} />
         <Route path="/dashboard/quality" element={<QualityAssurancePage />} />
         <Route path="/dashboard/alerts" element={<AlertsPage />} />
 
         <Route path="/dashboard/flow-builder" element={<FlowBuilderPage />} />
+
+        {/* RECRUIT Section */}
+        <Route path="/dashboard/jobs" element={<JobsPage />} />
+        <Route path="/dashboard/candidates" element={<CandidatesPage />} />
+        <Route path="/dashboard/interviews" element={<InterviewsPage />} />
+        <Route path="/dashboard/interviews/:templateId" element={<InterviewBuilderPage />} />
+        <Route path="/dashboard/results" element={<ResultsPage />} />
+        <Route path="/dashboard/recruitment" element={<RecruitmentDashboardPage />} />
+        <Route path="/dashboard/jobs/:jobId/shortlist" element={<ShortlistPage />} />
+        <Route path="/dashboard/recruitment-settings" element={<RecruitmentSettingsPage />} />
 
         {/* SYSTEM Section */}
         <Route path="/dashboard/billing" element={<BillingPage />} />
@@ -211,6 +246,11 @@ function AppRoutes() {
       </Route>
 
       {/* ============================================ */}
+      {/* PUBLIC CANDIDATE INTERVIEW - no layout, no auth */}
+      {/* ============================================ */}
+      <Route path="/candidate/interview/:token" element={<CandidateInterviewPage />} />
+
+      {/* ============================================ */}
       {/* CATCH ALL - Redirect to home */}
       {/* ============================================ */}
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -221,9 +261,12 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <OnboardingProvider>
+        <Router>
+          <WelcomeModal />
+          <AppRoutes />
+        </Router>
+      </OnboardingProvider>
     </AuthProvider>
   )
 }

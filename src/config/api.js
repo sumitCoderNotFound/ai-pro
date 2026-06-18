@@ -82,6 +82,9 @@ export const ENDPOINTS = {
     CALL_OUTCOMES: '/analytics/call-outcomes',
     AGENT_PERFORMANCE: '/analytics/agent-performance',
     CHAT_HISTORY: '/analytics/chat-history',
+    PERCEPTION_OVERVIEW: '/analytics/perception/overview',
+    PERCEPTION_LEADERBOARD: '/analytics/perception/leaderboard',
+    PERCEPTION_CONVERSATION: '/analytics/perception/conversation',
   },
   
   // Settings
@@ -105,6 +108,88 @@ export const ENDPOINTS = {
     ALERTS_STATS: '/monitor/alerts/stats',
     ALERTS_RULES: '/monitor/alerts/rules',
     ALERTS_HISTORY: '/monitor/alerts/history',
+  },
+
+  // Recruitment - Jobs
+  JOBS: {
+    LIST: '/recruitment/jobs',
+    CREATE: '/recruitment/jobs',
+    GET: (id) => `/recruitment/jobs/${id}`,
+    UPDATE: (id) => `/recruitment/jobs/${id}`,
+    DELETE: (id) => `/recruitment/jobs/${id}`,
+    DUPLICATE: (id) => `/recruitment/jobs/${id}/duplicate`,
+    CLOSE: (id) => `/recruitment/jobs/${id}/close`,
+    PARSE: '/recruitment/jobs/parse-description',
+    SHORTLIST: (id) => `/recruitment/jobs/${id}/shortlist`,
+  },
+
+  RECRUITMENT_DASHBOARD: '/recruitment/dashboard',
+
+  // Recruitment - Candidates & Applications
+  CANDIDATES: {
+    LIST: '/recruitment/candidates',
+    CREATE: '/recruitment/candidates',
+    GET: (id) => `/recruitment/candidates/${id}`,
+    UPDATE: (id) => `/recruitment/candidates/${id}`,
+    DELETE: (id) => `/recruitment/candidates/${id}`,
+    BULK_IMPORT: '/recruitment/candidates/bulk-import',
+  },
+  APPLICATIONS: {
+    LIST: '/recruitment/applications',
+    CREATE: '/recruitment/applications',
+    GET: (id) => `/recruitment/applications/${id}`,
+    DECIDE: (id) => `/recruitment/applications/${id}/decisions`,
+    HISTORY: (id) => `/recruitment/applications/${id}/history`,
+  },
+
+  // Recruitment - Interviews & versions
+  INTERVIEWS: {
+    LIST: '/recruitment/interviews',
+    CREATE: '/recruitment/interviews',
+    GET: (id) => `/recruitment/interviews/${id}`,
+    DELETE: (id) => `/recruitment/interviews/${id}`,
+    DRAFT: (id) => `/recruitment/interviews/${id}/draft`,
+    NEW_DRAFT: (id) => `/recruitment/interviews/${id}/new-draft`,
+    PUBLISH: (id) => `/recruitment/interviews/${id}/publish`,
+    GENERATE: (id) => `/recruitment/interviews/${id}/generate`,
+  },
+  VERSIONS: {
+    QUESTIONS: (vid) => `/recruitment/versions/${vid}/questions`,
+    QUESTION: (vid, qid) => `/recruitment/versions/${vid}/questions/${qid}`,
+    REORDER: (vid) => `/recruitment/versions/${vid}/questions/reorder`,
+    BRANCH: (vid, qid) => `/recruitment/versions/${vid}/questions/${qid}/branch-rules`,
+    RUBRIC: (vid) => `/recruitment/versions/${vid}/rubric`,
+    CRITERIA: (vid) => `/recruitment/versions/${vid}/criteria`,
+    CRITERION: (vid, cid) => `/recruitment/versions/${vid}/criteria/${cid}`,
+    SIMULATE: (vid) => `/recruitment/versions/${vid}/simulate`,
+  },
+
+  // Recruitment Phase 2 - Invites, Sessions, Settings
+  INVITES: {
+    CREATE: (templateId) => `/recruitment/interviews/${templateId}/invites`,
+    LIST: (templateId) => `/recruitment/interviews/${templateId}/invites`,
+    REVOKE: (id) => `/recruitment/invites/${id}/revoke`,
+    BULK: (templateId) => `/recruitment/interviews/${templateId}/invites/bulk`,
+    SEND_EMAIL: (id) => `/recruitment/invites/${id}/send-email`,
+  },
+  SESSIONS: {
+    LIST: '/recruitment/sessions',
+    GET: (id) => `/recruitment/sessions/${id}`,
+    SCORE: (id) => `/recruitment/sessions/${id}/score`,
+    APP_RESULT: (appId) => `/recruitment/applications/${appId}/result`,
+  },
+  RECRUITMENT_SETTINGS: '/recruitment/settings',
+
+  // Recruitment Phase 2 - Public (candidate, no auth)
+  PUBLIC: {
+    INVITE: (token) => `/recruitment/public/invites/${token}`,
+    REGISTER: (token) => `/recruitment/public/invites/${token}/register`,
+    SESSION: (st) => `/recruitment/public/sessions/${st}`,
+    ANSWER: (st) => `/recruitment/public/sessions/${st}/answers`,
+    COMPLETE: (st) => `/recruitment/public/sessions/${st}/complete`,
+    RESULT: (st) => `/recruitment/public/sessions/${st}/result`,
+    VOICE_TOKEN: (st) => `/recruitment/public/sessions/${st}/voice-token`,
+    RISK_SIGNALS: (st) => `/recruitment/public/sessions/${st}/risk-signals`,
   },
 };
 

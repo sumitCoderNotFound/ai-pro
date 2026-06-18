@@ -3,12 +3,14 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Logo } from '@/components/ui'
 import { cn } from '@/utils/helpers'
+import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist'
 import {
   Bot,
   Database,
   Phone,
   MessageSquare,
   BarChart3,
+  Brain,
   Shield,
   Bell,
   CreditCard,
@@ -27,7 +29,16 @@ import {
   ChevronRight,
   Sparkles,
   ExternalLink,
-  Info
+  Info,
+  Inbox,
+  Users,
+  Puzzle,
+  ArrowLeftRight,
+  LayoutTemplate,
+  Briefcase,
+  UserSquare2,
+  ClipboardList,
+  LayoutDashboard,
 } from 'lucide-react'
 
 const PrivateLayout = () => {
@@ -50,8 +61,20 @@ const PrivateLayout = () => {
       label: 'BUILD',
       items: [
         { name: 'Agents', href: '/dashboard/agents', icon: Bot },
+        { name: 'Templates', href: '/dashboard/agents/templates', icon: LayoutTemplate, badge: 'New' },
         { name: 'Knowledge Base', href: '/dashboard/knowledge', icon: Database },
         { name: 'Chat', href: '/dashboard/chat', icon: MessageSquare },
+      ]
+    },
+    recruit: {
+      label: 'RECRUIT',
+      items: [
+        { name: 'Overview', href: '/dashboard/recruitment', icon: LayoutDashboard },
+        { name: 'Jobs', href: '/dashboard/jobs', icon: Briefcase },
+        { name: 'Candidates', href: '/dashboard/candidates', icon: UserSquare2 },
+        { name: 'Interviews', href: '/dashboard/interviews', icon: ClipboardList, badge: 'New' },
+        { name: 'Results', href: '/dashboard/results', icon: BarChart3 },
+        { name: 'Settings', href: '/dashboard/recruitment-settings', icon: Settings },
       ]
     },
     deploy: {
@@ -59,16 +82,21 @@ const PrivateLayout = () => {
       items: [
         { name: 'Phone Numbers', href: '/dashboard/phone-numbers', icon: Phone },
         { name: 'Batch Call', href: '/dashboard/batch-calls', icon: PhoneCall },
+        { name: 'Integrations', href: '/dashboard/integrations', icon: Puzzle },
       ]
     },
     monitor: {
       label: 'MONITOR',
       items: [
+        { name: 'Inbox', href: '/dashboard/inbox', icon: Inbox, badge: 'Live' },
+        { name: 'Contacts', href: '/dashboard/contacts', icon: Users },
         { name: 'Call History', href: '/dashboard/calls', icon: History },
         { name: 'Chat History', href: '/dashboard/chats', icon: MessagesSquare },
         { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+        { name: 'Perception', href: '/dashboard/perception', icon: Brain },
         { name: 'AI Quality Assurance', href: '/dashboard/quality', icon: Shield },
         { name: 'Alerting', href: '/dashboard/alerts', icon: Bell, badge: 'New' },
+        { name: 'Human Handoff', href: '/dashboard/handoff', icon: ArrowLeftRight },
       ]
     },
     system: {
@@ -189,6 +217,9 @@ const PrivateLayout = () => {
             </div>
           ))}
         </nav>
+
+        {/* Onboarding Checklist */}
+        <OnboardingChecklist collapsed={sidebarCollapsed} />
 
         {/* Free Trial Section */}
         <div className="border-t border-neutral-100">
@@ -397,6 +428,15 @@ const PrivateLayout = () => {
               <button className="p-2.5 text-neutral-500 hover:bg-neutral-100 rounded-xl transition-colors">
                 <HelpCircle className="w-5 h-5" />
               </button>
+
+              {/* System status pill */}
+              <Link
+                to="/status"
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+              >
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-xs font-semibold text-emerald-700">All systems up</span>
+              </Link>
             </div>
           </div>
         </header>

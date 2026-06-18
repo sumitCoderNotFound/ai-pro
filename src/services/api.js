@@ -73,7 +73,16 @@ class ApiService {
         }
       }
 
-      const error = new Error(data.detail || data.message || 'An error occurred');
+      const detail = data.detail;
+      let message;
+      if (Array.isArray(detail)) {
+        message = detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
+      } else if (detail && typeof detail === 'object') {
+        message = JSON.stringify(detail);
+      } else {
+        message = detail || data.message || 'An error occurred';
+      }
+      const error = new Error(message);
       error.status = response.status;
       error.data = data;
       throw error;
@@ -405,6 +414,20 @@ export const analyticsApi = {
   getChatHistory: async (params = {}) => {
     return api.get(ENDPOINTS.ANALYTICS.CHAT_HISTORY, params);
   },
+
+  getPerceptionOverview: async (timeRange = '7d', agentId = null) => {
+    const params = { time_range: timeRange };
+    if (agentId) params.agent_id = agentId;
+    return api.get(ENDPOINTS.ANALYTICS.PERCEPTION_OVERVIEW, params);
+  },
+
+  getPerceptionLeaderboard: async (timeRange = '7d') => {
+    return api.get(ENDPOINTS.ANALYTICS.PERCEPTION_LEADERBOARD, { time_range: timeRange });
+  },
+
+  getConversationPerception: async (conversationId) => {
+    return api.get(`${ENDPOINTS.ANALYTICS.PERCEPTION_CONVERSATION}/${conversationId}`);
+  },
 };
 
 // ============================================
@@ -495,6 +518,119 @@ export const monitorApi = {
   getAlertHistory: async (limit = 10) => {
     return api.get(ENDPOINTS.MONITOR.ALERTS_HISTORY, { limit });
   },
+};
+
+// ============================================
+// RECRUITMENT API (Jobs, Candidates, Interviews)
+// ============================================
+
+export const recruitmentApi = {
+  jobs: {
+    list: (params = {}) => api.get(ENDPOINTS.JOBS.LIST, params),
+    create: (data) => api.post(ENDPOINTS.JOBS.CREATE, data),
+    get: (id) => api.get(ENDPOINTS.JOBS.GET(id)),
+    update: (id, data) => api.patch(ENDPOINTS.JOBS.UPDATE(id), data),
+    remove: (id) => api.delete(ENDPOINTS.JOBS.DELETE(id)),
+    duplicate: (id) => api.post(ENDPOINTS.JOBS.DUPLICATE(id)),
+    close: (id) => api.post(ENDPOINTS.JOBS.CLOSE(id)),
+    parseDescription: (description) => api.post(ENDPOINTS.JOBS.PARSE, { description }),
+    shortlist: (id) => api.get(ENDPOINTS.JOBS.SHORTLIST(id)),
+  },
+  dashboard: {
+    get: () => api.get(ENDPOINTS.RECRUITMENT_DASHBOARD),
+  },
+  candidates: {
+    list: (params = {}) => api.get(ENDPOINTS.CANDIDATES.LIST, params),
+    create: (data) => api.post(ENDPOINTS.CANDIDATES.CREATE, data),
+    get: (id) => api.get(ENDPOINTS.CANDIDATES.GET(id)),
+    update: (id, data) => api.patch(ENDPOINTS.CANDIDATES.UPDATE(id), data),
+    remove: (id) => api.delete(ENDPOINTS.CANDIDATES.DELETE(id)),
+    bulkImport: (data) => api.post(ENDPOINTS.CANDIDATES.BULK_IMPORT, data),
+  },
+  applications: {
+    list: (params = {}) => api.get(ENDPOINTS.APPLICATIONS.LIST, params),
+    create: (data) => api.post(ENDPOINTS.APPLICATIONS.CREATE, data),
+    get: (id) => api.get(ENDPOINTS.APPLICATIONS.GET(id)),
+    decide: (id, toStage, reason) =>
+      api.post(ENDPOINTS.APPLICATIONS.DECIDE(id), { to_stage: toStage, reason }),
+    history: (id) => api.get(ENDPOINTS.APPLICATIONS.HISTORY(id)),
+  },
+  interviews: {
+    list: (params = {}) => api.get(ENDPOINTS.INTERVIEWS.LIST, params),
+    create: (data) => api.post(ENDPOINTS.INTERVIEWS.CREATE, data),
+    get: (id) => api.get(ENDPOINTS.INTERVIEWS.GET(id)),
+    remove: (id) => api.delete(ENDPOINTS.INTERVIEWS.DELETE(id)),
+    getDraft: (id) => api.get(ENDPOINTS.INTERVIEWS.DRAFT(id)),
+    updateDraft: (id, data) => api.patch(ENDPOINTS.INTERVIEWS.DRAFT(id), data),
+    newDraft: (id) => api.post(ENDPOINTS.INTERVIEWS.NEW_DRAFT(id)),
+    publish: (id) => api.post(ENDPOINTS.INTERVIEWS.PUBLISH(id)),
+    generate: (id, data) => api.post(ENDPOINTS.INTERVIEWS.GENERATE(id), data),
+  },
+  versions: {
+    listQuestions: (vid) => api.get(ENDPOINTS.VERSIONS.QUESTIONS(vid)),
+    addQuestion: (vid, data) => api.post(ENDPOINTS.VERSIONS.QUESTIONS(vid), data),
+    updateQuestion: (vid, qid, data) => api.patch(ENDPOINTS.VERSIONS.QUESTION(vid, qid), data),
+    deleteQuestion: (vid, qid) => api.delete(ENDPOINTS.VERSIONS.QUESTION(vid, qid)),
+    reorderQuestions: (vid, orderedIds) =>
+      api.post(ENDPOINTS.VERSIONS.REORDER(vid), { ordered_ids: orderedIds }),
+    addBranchRule: (vid, qid, data) => api.post(ENDPOINTS.VERSIONS.BRANCH(vid, qid), data),
+    getRubric: (vid) => api.get(ENDPOINTS.VERSIONS.RUBRIC(vid)),
+    addCriterion: (vid, data) => api.post(ENDPOINTS.VERSIONS.CRITERIA(vid), data),
+    updateCriterion: (vid, cid, data) => api.patch(ENDPOINTS.VERSIONS.CRITERION(vid, cid), data),
+    deleteCriterion: (vid, cid) => api.delete(ENDPOINTS.VERSIONS.CRITERION(vid, cid)),
+    simulate: (vid, persona) => api.post(ENDPOINTS.VERSIONS.SIMULATE(vid), { persona }),
+  },
+  invites: {
+    create: (templateId, data) => api.post(ENDPOINTS.INVITES.CREATE(templateId), data),
+    list: (templateId) => api.get(ENDPOINTS.INVITES.LIST(templateId)),
+    revoke: (id) => api.post(ENDPOINTS.INVITES.REVOKE(id)),
+    bulk: (templateId, data) => api.post(ENDPOINTS.INVITES.BULK(templateId), data),
+    sendEmail: (id, data = {}) => api.post(ENDPOINTS.INVITES.SEND_EMAIL(id), data),
+  },
+  sessions: {
+    list: (params = {}) => api.get(ENDPOINTS.SESSIONS.LIST, params),
+    get: (id) => api.get(ENDPOINTS.SESSIONS.GET(id)),
+    getScore: (id) => api.get(`${ENDPOINTS.SESSIONS.GET(id)}/score`),
+    rescore: (id) => api.post(ENDPOINTS.SESSIONS.SCORE(id)),
+    applicationResult: (appId) => api.get(ENDPOINTS.SESSIONS.APP_RESULT(appId)),
+  },
+  settings: {
+    get: () => api.get(ENDPOINTS.RECRUITMENT_SETTINGS),
+    update: (data) => api.patch(ENDPOINTS.RECRUITMENT_SETTINGS, data),
+  },
+};
+
+// ============================================
+// PUBLIC CANDIDATE API (no auth, token-based)
+// ============================================
+
+const publicRequest = async (endpoint, method = 'GET', body = null) => {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_URL}${endpoint}`, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = data.detail;
+    let message;
+    if (Array.isArray(detail)) message = detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
+    else if (detail && typeof detail === 'object') message = JSON.stringify(detail);
+    else message = detail || data.message || 'Something went wrong';
+    const err = new Error(message);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+};
+
+export const publicInterviewApi = {
+  getInvite: (token) => publicRequest(ENDPOINTS.PUBLIC.INVITE(token)),
+  register: (token, data) => publicRequest(ENDPOINTS.PUBLIC.REGISTER(token), 'POST', data),
+  getSession: (st) => publicRequest(ENDPOINTS.PUBLIC.SESSION(st)),
+  submitAnswer: (st, data) => publicRequest(ENDPOINTS.PUBLIC.ANSWER(st), 'POST', data),
+  complete: (st) => publicRequest(ENDPOINTS.PUBLIC.COMPLETE(st), 'POST'),
+  getResult: (st) => publicRequest(ENDPOINTS.PUBLIC.RESULT(st)),
+  voiceToken: (st) => publicRequest(ENDPOINTS.PUBLIC.VOICE_TOKEN(st), 'POST'),
+  riskSignals: (st, signals) => publicRequest(ENDPOINTS.PUBLIC.RISK_SIGNALS(st), 'POST', { signals }),
 };
 
 export default api;

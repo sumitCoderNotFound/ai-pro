@@ -49,7 +49,7 @@ const SettingsPage = () => {
     { id: 'workspace', label: 'Workspace', icon: Building },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'security', label: 'Security & Trust', icon: Shield },
     { id: 'api', label: 'API Keys', icon: Key },
   ]
 
@@ -314,44 +314,154 @@ const SettingsPage = () => {
 
       case 'security':
         return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-neutral-900">Security Settings</h3>
-            
-            <div className="space-y-4">
-              <div className="p-4 bg-neutral-50 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-neutral-900">Password</p>
-                    <p className="text-sm text-neutral-500">Change your account password</p>
+          <div className="space-y-8">
+            {/* Header */}
+            <div>
+              <h3 className="text-lg font-bold text-neutral-900">Security & Trust</h3>
+              <p className="text-sm text-neutral-500 mt-1">Your data is protected by enterprise-grade security infrastructure.</p>
+            </div>
+
+            {/* Trust Banner */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <Shield className="w-4 h-4" />
                   </div>
-                  <button className="px-4 py-2 border border-neutral-300 rounded-xl text-sm font-medium hover:bg-neutral-100">
-                    Change Password
-                  </button>
+                  <span className="font-bold text-lg">Enterprise-Grade Security</span>
+                </div>
+                <p className="text-emerald-100 text-sm leading-relaxed max-w-lg">
+                  ConvoHubAI is built on security-first infrastructure. All your conversation data, agent configurations, and customer information are protected end-to-end.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {['AES-256 Encryption', 'TLS 1.3 in Transit', 'SOC 2 Compliant', 'GDPR Ready'].map(b => (
+                    <span key={b} className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/30">
+                      <CheckCircle className="w-3 h-3" />{b}
+                    </span>
+                  ))}
                 </div>
               </div>
+            </div>
 
-              <div className="p-4 bg-neutral-50 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-neutral-900">Two-Factor Authentication</p>
-                    <p className="text-sm text-neutral-500">Add an extra layer of security</p>
+            {/* Compliance Badges */}
+            <div>
+              <h4 className="text-sm font-bold text-neutral-700 uppercase tracking-widest mb-3">Compliance & Certifications</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { badge: 'GDPR', desc: 'EU Data Protection', color: 'blue', icon: '🇪🇺' },
+                  { badge: 'SOC 2', desc: 'Type II Audit Ready', color: 'indigo', icon: '🏛️' },
+                  { badge: 'HIPAA', desc: 'Healthcare Ready', color: 'emerald', icon: '🏥' },
+                  { badge: 'ISO 27001', desc: 'Info Security Mgmt', color: 'violet', icon: '🔐' },
+                ].map(({ badge, desc, color, icon }) => (
+                  <div key={badge} className={`p-4 rounded-2xl border-2 text-center bg-${color}-50 border-${color}-100`}>
+                    <div className="text-2xl mb-1">{icon}</div>
+                    <p className={`text-sm font-black text-${color}-700`}>{badge}</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">{desc}</p>
                   </div>
-                  <button className="px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700">
-                    Enable 2FA
-                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Encryption Details */}
+            <div>
+              <h4 className="text-sm font-bold text-neutral-700 uppercase tracking-widest mb-3">Data Protection</h4>
+              <div className="space-y-2">
+                {[
+                  { title: 'Data at Rest', desc: 'All stored data encrypted with AES-256-GCM', icon: '🔒', status: 'Active' },
+                  { title: 'Data in Transit', desc: 'TLS 1.3 enforced on all API connections', icon: '🔗', status: 'Active' },
+                  { title: 'Database Encryption', desc: 'PostgreSQL tablespace and column-level encryption', icon: '🗄️', status: 'Active' },
+                  { title: 'Backups', desc: 'Encrypted daily backups retained for 30 days', icon: '💾', status: 'Active' },
+                  { title: 'Data Residency', desc: 'Data stored in your chosen region only', icon: '🌍', status: 'Active' },
+                ].map(({ title, desc, icon, status }) => (
+                  <div key={title} className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+                    <span className="text-xl w-8 text-center flex-shrink-0">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-neutral-800">{title}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">{desc}</p>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                      {status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Account Security */}
+            <div>
+              <h4 className="text-sm font-bold text-neutral-700 uppercase tracking-widest mb-3">Account Security</h4>
+              <div className="space-y-3">
+                <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">Password</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">Use a strong, unique password for your account</p>
+                    </div>
+                    <button className="px-3 py-2 border border-neutral-300 rounded-xl text-xs font-semibold hover:bg-white transition-colors">
+                      Change Password
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">Two-Factor Authentication</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">Adds a second verification step on login</p>
+                    </div>
+                    <button className="px-3 py-2 bg-neutral-900 text-white rounded-xl text-xs font-semibold hover:bg-neutral-800 transition-colors">
+                      Enable 2FA
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">Active Sessions</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">View and revoke logged-in devices</p>
+                    </div>
+                    <button className="px-3 py-2 border border-neutral-300 rounded-xl text-xs font-semibold hover:bg-white transition-colors">
+                      View Sessions
+                    </button>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="p-4 bg-neutral-50 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-neutral-900">Active Sessions</p>
-                    <p className="text-sm text-neutral-500">Manage your logged in devices</p>
+            {/* Privacy Controls */}
+            <div>
+              <h4 className="text-sm font-bold text-neutral-700 uppercase tracking-widest mb-3">Privacy Controls</h4>
+              <div className="space-y-2">
+                {[
+                  { title: 'Call Recording', desc: 'Control whether voice calls are recorded and stored', toggle: true, on: true },
+                  { title: 'Transcript Storage', desc: 'Save conversation transcripts for analytics and review', toggle: true, on: true },
+                  { title: 'Analytics Data Sharing', desc: 'Anonymous usage data to improve the platform', toggle: true, on: false },
+                ].map(({ title, desc, on }) => (
+                  <div key={title} className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-neutral-800">{title}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">{desc}</p>
+                    </div>
+                    <div className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 cursor-pointer ${on ? 'bg-emerald-500' : 'bg-neutral-300'}`}>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-1'}`} />
+                    </div>
                   </div>
-                  <button className="px-4 py-2 border border-neutral-300 rounded-xl text-sm font-medium hover:bg-neutral-100">
-                    View Sessions
-                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Data Deletion */}
+            <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-rose-800">Data Deletion</p>
+                  <p className="text-xs text-rose-600 mt-0.5">Request permanent deletion of all your workspace data. This action cannot be undone.</p>
                 </div>
+                <button className="px-3 py-1.5 text-xs font-semibold text-rose-700 border border-rose-300 rounded-lg hover:bg-rose-100 transition-colors flex-shrink-0">
+                  Request Deletion
+                </button>
               </div>
             </div>
           </div>

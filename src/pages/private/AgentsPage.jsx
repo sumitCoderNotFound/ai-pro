@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agentsApi } from '@/services/api'
+import EmptyState from '@/components/onboarding/EmptyState'
+import { useOnboarding } from '@/context/OnboardingContext'
 import {
   Plus,
   Search,
@@ -789,6 +791,7 @@ const AgentCard = ({ agent, onEdit, onDelete, onToggleStatus, onDuplicate }) => 
 // Main Agents Page
 const AgentsPage = () => {
   const navigate = useNavigate()
+  const { markComplete } = useOnboarding()
   const [agents, setAgents] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -827,6 +830,7 @@ const AgentsPage = () => {
   // Create agent - THEN NAVIGATE TO DETAIL PAGE
   const handleCreate = async (data) => {
     const newAgent = await agentsApi.create(data)
+    markComplete('create_agent')
     // Navigate to the new agent's detail page
     navigate(`/dashboard/agents/${newAgent.id}`)
   }
@@ -884,13 +888,22 @@ const AgentsPage = () => {
           <h1 className="text-2xl font-bold text-neutral-900">AI Agents</h1>
           <p className="text-neutral-500">Manage your AI agents and their configurations</p>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Create Agent
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/dashboard/agents/templates')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-neutral-300 bg-white rounded-xl hover:bg-neutral-50 font-medium text-neutral-700 text-sm transition-colors"
+          >
+            <span>🧩</span>
+            Use a Template
+          </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium"
+          >
+            <Plus className="w-5 h-5" />
+            Create Agent
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -935,18 +948,19 @@ const AgentsPage = () => {
         </div>
       ) : agents.length === 0 ? (
         /* Empty State */
-        <div className="text-center py-12 bg-white rounded-2xl border border-neutral-200">
-          <Bot className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-neutral-900 mb-2">No agents yet</h3>
-          <p className="text-neutral-500 mb-6">Create your first AI agent to get started</p>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            Create Agent
-          </button>
-        </div>
+        <EmptyState
+          emoji="🤖"
+          title="Build your first AI Agent"
+          description="AI Agents handle your voice calls, chats and video conversations — 24/7, without breaks. Create one in under 2 minutes."
+          variant="agents"
+          primaryAction={{ label: 'Create your first Agent', onClick: () => setIsCreateModalOpen(true) }}
+          secondaryAction={{ label: 'Learn about agents', href: '/docs' }}
+          tips={[
+            'Give your agent a clear persona — "You are Sarah, a friendly sales assistant for Acme Corp."',
+            'Add a Knowledge Base so your agent can answer questions about your products.',
+            'Connect a phone number so the agent can handle real inbound calls.',
+          ]}
+        />
       ) : (
         /* Agents Grid */
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">

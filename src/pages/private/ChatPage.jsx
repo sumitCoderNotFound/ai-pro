@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate, Navigate } from 'react-router-dom'
-
+import { useOnboarding } from '@/context/OnboardingContext'
 import { agentsApi } from '@/services/api'
 import {
   Send, Bot, User, Loader2, MessageSquare, Plus, Trash2, Settings, Sparkles,
@@ -165,6 +165,41 @@ const CollapsibleSection = ({ title, icon: Icon, children, defaultOpen = false }
   )
 }
 
+const SENTIMENT_EMOJI = { positive: '😊', neutral: '😐', negative: '😤' }
+const EMOTION_EMOJI   = { happy: '😄', excited: '🤩', neutral: '😐', confused: '😕', frustrated: '😤', angry: '😠', sad: '😢' }
+const ENGAGEMENT_COLOR = { high: '#10b981', medium: '#f59e0b', low: '#f43f5e' }
+
+const PerceptionPill = ({ perception }) => {
+  if (!perception) return null
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {perception.sentiment && (
+        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+          {SENTIMENT_EMOJI[perception.sentiment]} {perception.sentiment}
+        </span>
+      )}
+      {perception.emotion && perception.emotion !== 'neutral' && (
+        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+          {EMOTION_EMOJI[perception.emotion] || '💬'} {perception.emotion}
+        </span>
+      )}
+      {perception.intent && perception.intent !== 'general_inquiry' && (
+        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
+          🎯 {perception.intent.replace(/_/g, ' ')}
+        </span>
+      )}
+      {perception.lead_score != null && (
+        <span
+          className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
+          style={{ backgroundColor: perception.lead_score >= 70 ? '#10b981' : perception.lead_score >= 45 ? '#f59e0b' : '#f43f5e' }}
+        >
+          ★ {perception.lead_score}
+        </span>
+      )}
+    </div>
+  )
+}
+
 const MessageBubble = ({ message, isUser }) => (
   <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-blue-500' : 'bg-neutral-800'}`}>
@@ -172,6 +207,7 @@ const MessageBubble = ({ message, isUser }) => (
     </div>
     <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${isUser ? 'bg-blue-500 text-white' : 'bg-white border border-neutral-200 text-neutral-900'}`}>
       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+      {!isUser && <PerceptionPill perception={message.perception} />}
       <p className={`text-xs mt-1.5 ${isUser ? 'text-blue-100' : 'text-neutral-400'}`}>
         {new Date(message.timestamp || message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
@@ -471,6 +507,7 @@ const TestChatPanel = ({ agent, messages, onSendMessage, isSending, onClear, cha
 const ChatPage = () => {
   const [searchParams] = useSearchParams()
   const initialAgentId = searchParams.get('agent_id')
+  const { markComplete } = useOnboarding()
   const [agents, setAgents] = useState([])
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [selectedConversation, setSelectedConversation] = useState(null)
@@ -507,8 +544,15 @@ const ChatPage = () => {
     try {
       const response = await chatApi.sendMessage(selectedAgent.id, userMessage, selectedConversation?.id)
       if (!selectedConversation) { setSelectedConversation({ id: response.conversation_id }) }
-      const aiMessage = { id: response.message_id, role: 'assistant', content: response.response, created_at: response.created_at }
+      const aiMessage = {
+        id: response.message_id,
+        role: 'assistant',
+        content: response.response,
+        created_at: response.created_at,
+        perception: response.perception || null,   // ← perception data from backend
+      }
       setMessages(prev => [...prev, aiMessage])
+      markComplete('test_chat')   // ✅ tick checklist
     } catch (err) { console.error(err); setError(err.message || 'Failed to send message'); setMessages(prev => prev.filter(m => m.id !== tempUserMsg.id)) }
     finally { setIsSending(false) }
   }

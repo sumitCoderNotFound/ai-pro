@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { agentsApi } from '@/services/api'
+import EmptyState from '@/components/onboarding/EmptyState'
 import {
   Phone,
   PhoneIncoming,
@@ -212,13 +213,19 @@ const CallHistoryPage = () => {
 
       {/* Call List */}
       {calls.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-neutral-200">
-          <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Phone className="w-8 h-8 text-neutral-400" />
-          </div>
-          <h3 className="text-lg font-medium text-neutral-900">No calls yet</h3>
-          <p className="text-neutral-500 mt-1">Call history will appear here once you make or receive calls</p>
-        </div>
+        <EmptyState
+          emoji="📞"
+          title="No calls yet"
+          description="Your voice call history will appear here. Connect a phone number to your agent and start taking inbound calls or launch an outbound campaign."
+          variant="calls"
+          primaryAction={{ label: 'Connect a Phone Number', href: '/dashboard/phone-numbers' }}
+          secondaryAction={{ label: 'Start a Batch Campaign', href: '/dashboard/batch-calls' }}
+          tips={[
+            'Make sure your agent is set to "Active" before it can receive calls.',
+            'Use Batch Calls to proactively reach hundreds of contacts at once.',
+            'Call recordings and transcripts are saved automatically for every conversation.',
+          ]}
+        />
       ) : (
         <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
           <table className="w-full">
