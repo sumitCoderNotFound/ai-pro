@@ -39,6 +39,7 @@ import {
   UserSquare2,
   ClipboardList,
   LayoutDashboard,
+  Plug,
 } from 'lucide-react'
 
 const PrivateLayout = () => {
@@ -74,6 +75,7 @@ const PrivateLayout = () => {
         { name: 'Candidates', href: '/dashboard/candidates', icon: UserSquare2 },
         { name: 'Interviews', href: '/dashboard/interviews', icon: ClipboardList, badge: 'New' },
         { name: 'Results', href: '/dashboard/results', icon: BarChart3 },
+        { name: 'Integrations', href: '/dashboard/ats', icon: Plug },
         { name: 'Settings', href: '/dashboard/recruitment-settings', icon: Settings },
       ]
     },

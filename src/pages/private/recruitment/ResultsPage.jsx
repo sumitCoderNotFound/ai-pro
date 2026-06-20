@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { recruitmentApi } from '@/services/api'
 import EmptyState from '@/components/onboarding/EmptyState'
 import {
-  AlertCircle, X, BarChart3, RefreshCw, ShieldAlert, ChevronRight, FileText, Award,
+  AlertCircle, X, BarChart3, RefreshCw, ShieldAlert, ChevronRight, FileText, Award, Download,
 } from 'lucide-react'
 
 const STATUS_STYLE = {
@@ -43,6 +43,36 @@ const SessionDrawer = ({ session, candidateName, onClose, onError }) => {
   const [score, setScore] = useState(null)
   const [loading, setLoading] = useState(true)
   const [rescoring, setRescoring] = useState(false)
+  const [documents, setDocuments] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [reviews, setReviews] = useState([])
+  const [speech, setSpeech] = useState(null)
+  const [reviewForm, setReviewForm] = useState({ override_recommendation: '', override_score: '', note: '' })
+  const [savingReview, setSavingReview] = useState(false)
+
+  const loadReviews = async () => {
+    try { setReviews(await recruitmentApi.sessions.reviews(session.id)) } catch { /* ignore */ }
+  }
+
+  const submitReview = async () => {
+    const f = reviewForm
+    if (!f.override_recommendation && !f.override_score && !f.note.trim()) return
+    setSavingReview(true)
+    try {
+      await recruitmentApi.sessions.addReview(session.id, {
+        override_recommendation: f.override_recommendation || null,
+        override_score: f.override_score ? Number(f.override_score) : null,
+        note: f.note || null,
+      })
+      setReviewForm({ override_recommendation: '', override_score: '', note: '' })
+      await loadReviews()
+    } catch (err) { onError(err.message) } finally { setSavingReview(false) }
+  }
+
+  const loadDocs = async () => {
+    if (!session.candidate_id) return
+    try { setDocuments(await recruitmentApi.candidates.documents(session.candidate_id)) } catch { /* ignore */ }
+  }
 
   const load = async () => {
     try {
@@ -50,14 +80,46 @@ const SessionDrawer = ({ session, candidateName, onClose, onError }) => {
       const d = await recruitmentApi.sessions.get(session.id)
       setDetail(d)
       try { setScore(await recruitmentApi.sessions.getScore(session.id)) } catch { setScore(null) }
+      await loadDocs()
+      await loadReviews()
+      try { setSpeech(await recruitmentApi.sessions.speechAnalytics(session.id)) } catch { setSpeech(null) }
     } catch (err) { onError(err.message) } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [session])
+
+  const uploadDoc = async (e, kind) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try { await recruitmentApi.candidates.uploadDocument(session.candidate_id, file, kind); await loadDocs() }
+    catch (err) { onError(err.message) } finally { setUploading(false); e.target.value = '' }
+  }
+
+  const downloadDoc = async (doc) => {
+    try {
+      const blob = await recruitmentApi.candidates.downloadDocument(doc.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = doc.filename
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
+    } catch (err) { onError(err.message) }
+  }
 
   const rescore = async () => {
     setRescoring(true)
     try { setScore(await recruitmentApi.sessions.rescore(session.id)) }
     catch (err) { onError(err.message) } finally { setRescoring(false) }
+  }
+
+  const downloadReport = async () => {
+    try {
+      const blob = await recruitmentApi.sessions.downloadReport(session.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `interview_report_${(candidateName || 'candidate').replace(/\s+/g, '_')}.pdf`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) { onError(err.message) }
   }
 
   return (
@@ -80,9 +142,14 @@ const SessionDrawer = ({ session, candidateName, onClose, onError }) => {
             <div className="rounded-xl border border-neutral-200 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-neutral-900">Score</h3>
-                <button onClick={rescore} disabled={rescoring} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-neutral-300 rounded-lg text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">
-                  <RefreshCw className={`w-3.5 h-3.5 ${rescoring ? 'animate-spin' : ''}`} /> Re-run scoring
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={downloadReport} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-neutral-300 rounded-lg text-neutral-600 hover:bg-neutral-50">
+                    <Download className="w-3.5 h-3.5" /> Report
+                  </button>
+                  <button onClick={rescore} disabled={rescoring} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-neutral-300 rounded-lg text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">
+                    <RefreshCw className={`w-3.5 h-3.5 ${rescoring ? 'animate-spin' : ''}`} /> Re-run scoring
+                  </button>
+                </div>
               </div>
               {!score ? (
                 <p className="text-sm text-neutral-500">Not scored yet. If you've just added an AI key, click Re-run scoring.</p>
@@ -107,6 +174,30 @@ const SessionDrawer = ({ session, candidateName, onClose, onError }) => {
                       </div>
                     </div>
                   )}
+                  {(() => {
+                    const cs = (score.criterion_scores || []).filter((c) => c.raw_score != null)
+                    if (!cs.length) return null
+                    const sorted = [...cs].sort((a, b) => b.raw_score - a.raw_score)
+                    let strengths = sorted.filter((c) => c.raw_score >= 60).slice(0, 3)
+                    let concerns = [...sorted].reverse().filter((c) => c.raw_score < 60).slice(0, 3)
+                    if (!strengths.length) strengths = sorted.slice(0, 3)
+                    return (
+                      <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                        <div className="rounded-lg bg-green-50 border border-green-100 p-3">
+                          <div className="text-xs font-semibold text-green-700 mb-1.5">Key strengths</div>
+                          {strengths.length ? strengths.map((c) => (
+                            <div key={c.id} className="text-xs text-neutral-700 mb-1">{c.criterion_name} <span className="text-neutral-400">({Math.round(c.raw_score)})</span></div>
+                          )) : <div className="text-xs text-neutral-400">—</div>}
+                        </div>
+                        <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+                          <div className="text-xs font-semibold text-amber-700 mb-1.5">Areas to probe</div>
+                          {concerns.length ? concerns.map((c) => (
+                            <div key={c.id} className="text-xs text-neutral-700 mb-1">{c.criterion_name} <span className="text-neutral-400">({Math.round(c.raw_score)})</span></div>
+                          )) : <div className="text-xs text-neutral-400">None flagged</div>}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <div className="space-y-2">
                     {(score.criterion_scores || []).map((c) => (
                       <div key={c.id} className="border border-neutral-100 rounded-lg p-3">
@@ -119,6 +210,81 @@ const SessionDrawer = ({ session, candidateName, onClose, onError }) => {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Delivery & sentiment (advisory) */}
+            {speech && speech.total_words > 0 && (
+              <div className="rounded-xl border border-neutral-200 p-4">
+                <h3 className="text-sm font-medium text-neutral-900 mb-3">Delivery &amp; sentiment <span className="text-xs font-normal text-neutral-400">advisory</span></h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div><div className="text-lg font-semibold text-neutral-900">{speech.words_per_minute ?? '—'}</div><div className="text-xs text-neutral-400">words/min</div></div>
+                  <div><div className="text-lg font-semibold text-neutral-900 capitalize">{speech.pace_label}</div><div className="text-xs text-neutral-400">pace</div></div>
+                  <div><div className="text-lg font-semibold text-neutral-900">{speech.filler_count}</div><div className="text-xs text-neutral-400">filler words</div></div>
+                  <div><div className={`text-lg font-semibold capitalize ${speech.sentiment_label === 'positive' ? 'text-green-600' : speech.sentiment_label === 'negative' ? 'text-amber-600' : 'text-neutral-900'}`}>{speech.sentiment_label}</div><div className="text-xs text-neutral-400">tone</div></div>
+                </div>
+                <p className="text-xs text-neutral-400 mt-3">Advisory only. These signals should not by themselves drive a hiring decision.</p>
+              </div>
+            )}
+
+            {/* Human review / override */}
+            <div className="rounded-xl border border-neutral-200 p-4">
+              <h3 className="text-sm font-medium text-neutral-900 mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-neutral-400" /> Human review</h3>
+              {reviews.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="text-xs border border-neutral-100 rounded-lg p-2.5">
+                      <div className="flex items-center gap-2">
+                        {r.override_recommendation && <span className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 font-medium capitalize">{r.override_recommendation}</span>}
+                        {r.override_score != null && <span className="text-neutral-600">{Math.round(r.override_score)}/100</span>}
+                        <span className="text-neutral-400 ml-auto">{new Date(r.created_at).toLocaleString()}</span>
+                      </div>
+                      {r.note && <p className="text-neutral-600 mt-1">{r.note}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={reviewForm.override_recommendation} onChange={(e) => setReviewForm((p) => ({ ...p, override_recommendation: e.target.value }))}
+                    className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <option value="">Override recommendation…</option>
+                    <option value="strong">Strong</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="weak">Weak</option>
+                    <option value="insufficient">Insufficient</option>
+                  </select>
+                  <input type="number" min={0} max={100} value={reviewForm.override_score} onChange={(e) => setReviewForm((p) => ({ ...p, override_score: e.target.value }))}
+                    placeholder="Override score (optional)" className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                </div>
+                <textarea value={reviewForm.note} onChange={(e) => setReviewForm((p) => ({ ...p, note: e.target.value }))} rows={2}
+                  placeholder="Reviewer note / rationale" className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                <div className="flex justify-end">
+                  <button onClick={submitReview} disabled={savingReview} className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">{savingReview ? 'Saving…' : 'Record review'}</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Documents */}
+            <div className="rounded-xl border border-neutral-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-neutral-900 flex items-center gap-2"><FileText className="w-4 h-4 text-neutral-400" /> Documents</h3>
+                <label className="text-xs px-2.5 py-1.5 border border-neutral-300 rounded-lg text-neutral-600 hover:bg-neutral-50 cursor-pointer">
+                  {uploading ? 'Uploading…' : '+ Resume'}
+                  <input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" disabled={uploading} onChange={(e) => uploadDoc(e, 'resume')} />
+                </label>
+              </div>
+              {documents.length === 0 ? (
+                <p className="text-sm text-neutral-400">No documents uploaded.</p>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((d) => (
+                    <button key={d.id} onClick={() => downloadDoc(d)} className="w-full flex items-center justify-between text-left px-3 py-2 rounded-lg border border-neutral-200 hover:bg-neutral-50">
+                      <span className="text-sm text-neutral-800 truncate">{d.filename}</span>
+                      <span className="text-xs text-neutral-400 capitalize ml-2 flex-shrink-0">{d.kind.replace('_', ' ')} · {Math.max(1, Math.round((d.size || 0) / 1024))} KB</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>

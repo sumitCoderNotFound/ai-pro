@@ -113,12 +113,92 @@ const RecruitmentSettingsPage = () => {
               className="px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500" />
             <input value={form.brand_logo_url || ''} onChange={(e) => set('brand_logo_url', e.target.value)} placeholder="Logo URL"
               className="px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <input value={form.interviewer_avatar_url || ''} onChange={(e) => set('interviewer_avatar_url', e.target.value)} placeholder="Interviewer avatar photo URL (optional)"
+              className="px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 sm:col-span-2" />
           </div>
+          <p className="text-xs text-neutral-400 -mt-2">The avatar photo appears as the AI interviewer in voice and video interviews, with light animation. Leave blank for a default animated face. Use a photo only with the person's consent.</p>
         </div>
 
         <button onClick={save} disabled={saving} className="px-6 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50">
           {saving ? 'Saving…' : 'Save settings'}
         </button>
+      </div>
+
+      <EmailTemplatesEditor onError={setError} />
+    </div>
+  )
+}
+
+const KIND_LABEL = {
+  invite: 'Interview invite', selected: 'Selected', advance: 'Advanced',
+  rejected: 'Not selected', reminder: 'Reminder', completed: 'Completed', score_ready: 'Score ready',
+}
+
+const EmailTemplatesEditor = ({ onError }) => {
+  const [data, setData] = useState(null)
+  const [active, setActive] = useState('invite')
+  const [draft, setDraft] = useState({ subject: '', body_html: '', enabled: true })
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+
+  const load = async () => {
+    try {
+      const res = await recruitmentApi.emailTemplates.list()
+      setData(res)
+      const t = res.templates.find((x) => x.kind === active) || res.templates[0]
+      if (t) setDraft({ subject: t.subject, body_html: t.body_html, enabled: t.enabled })
+    } catch (err) { onError(err.message) }
+  }
+  useEffect(() => { load() }, [])
+
+  const pick = (kind) => {
+    setActive(kind); setNotice('')
+    const t = data?.templates.find((x) => x.kind === kind)
+    if (t) setDraft({ subject: t.subject, body_html: t.body_html, enabled: t.enabled })
+  }
+
+  const save = async () => {
+    setSaving(true); setNotice('')
+    try { await recruitmentApi.emailTemplates.upsert(active, draft); await load(); setNotice('Saved.') }
+    catch (err) { onError(err.message) } finally { setSaving(false) }
+  }
+  const reset = async () => {
+    setSaving(true); setNotice('')
+    try { await recruitmentApi.emailTemplates.reset(active); await load(); setNotice('Reverted to default.') }
+    catch (err) { onError(err.message) } finally { setSaving(false) }
+  }
+
+  if (!data) return null
+  const current = data.templates.find((x) => x.kind === active)
+
+  return (
+    <div className="bg-white rounded-2xl border border-neutral-200 p-6 space-y-4 max-w-2xl">
+      <div>
+        <h2 className="text-lg font-semibold text-neutral-900">Email templates</h2>
+        <p className="text-sm text-neutral-500">Customise the emails candidates receive. Emails only send when SMTP is configured.</p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {data.templates.map((t) => (
+          <button key={t.kind} onClick={() => pick(t.kind)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${active === t.kind ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+            {KIND_LABEL[t.kind] || t.kind}{t.is_custom ? ' •' : ''}
+          </button>
+        ))}
+      </div>
+      {notice && <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">{notice}</div>}
+      <div>
+        <label className="block text-sm font-medium text-neutral-700 mb-1.5">Subject</label>
+        <input value={draft.subject} onChange={(e) => setDraft((p) => ({ ...p, subject: e.target.value }))}
+          className="w-full px-3 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-neutral-700 mb-1.5">Body (HTML)</label>
+        <textarea value={draft.body_html} onChange={(e) => setDraft((p) => ({ ...p, body_html: e.target.value }))} rows={6}
+          className="w-full px-3 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-xs" />
+      </div>
+      <p className="text-xs text-neutral-400">Variables: {data.variables.map((v) => `{${v}}`).join(', ')}</p>
+      <div className="flex items-center gap-2">
+        <button onClick={save} disabled={saving} className="px-5 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 text-sm">{saving ? 'Saving…' : 'Save template'}</button>
+        {current?.is_custom && <button onClick={reset} disabled={saving} className="px-4 py-2 border border-neutral-300 rounded-xl text-neutral-700 hover:bg-neutral-50 text-sm">Reset to default</button>}
       </div>
     </div>
   )

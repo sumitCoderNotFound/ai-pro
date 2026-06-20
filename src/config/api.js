@@ -125,6 +125,16 @@ export const ENDPOINTS = {
 
   RECRUITMENT_DASHBOARD: '/recruitment/dashboard',
 
+  ATS: {
+    PROVIDERS: '/recruitment/ats/providers',
+    CONNECTIONS: '/recruitment/ats/connections',
+    CONNECTION: (id) => `/recruitment/ats/connections/${id}`,
+    TEST: (id) => `/recruitment/ats/connections/${id}/test`,
+    IMPORT_JOBS: (id) => `/recruitment/ats/connections/${id}/import-jobs`,
+    IMPORT_CANDIDATES: (id) => `/recruitment/ats/connections/${id}/import-candidates`,
+    PUSH: (id, appId) => `/recruitment/ats/connections/${id}/push/${appId}`,
+  },
+
   // Recruitment - Candidates & Applications
   CANDIDATES: {
     LIST: '/recruitment/candidates',
@@ -133,12 +143,18 @@ export const ENDPOINTS = {
     UPDATE: (id) => `/recruitment/candidates/${id}`,
     DELETE: (id) => `/recruitment/candidates/${id}`,
     BULK_IMPORT: '/recruitment/candidates/bulk-import',
+    DOCUMENTS: (id) => `/recruitment/candidates/${id}/documents`,
+    DOCUMENT_DOWNLOAD: (docId) => `/recruitment/documents/${docId}/download`,
+    DOCUMENT: (docId) => `/recruitment/documents/${docId}`,
   },
   APPLICATIONS: {
     LIST: '/recruitment/applications',
     CREATE: '/recruitment/applications',
     GET: (id) => `/recruitment/applications/${id}`,
     DECIDE: (id) => `/recruitment/applications/${id}/decisions`,
+    NOTIFY: (id) => `/recruitment/applications/${id}/notify`,
+    PRESCREEN_RESULT: (id) => `/recruitment/applications/${id}/prescreen-result`,
+    PRESCREEN_OVERRIDE: (resultId) => `/recruitment/prescreen-results/${resultId}/override`,
     HISTORY: (id) => `/recruitment/applications/${id}/history`,
   },
 
@@ -162,6 +178,8 @@ export const ENDPOINTS = {
     CRITERIA: (vid) => `/recruitment/versions/${vid}/criteria`,
     CRITERION: (vid, cid) => `/recruitment/versions/${vid}/criteria/${cid}`,
     SIMULATE: (vid) => `/recruitment/versions/${vid}/simulate`,
+    PRESCREEN: (vid) => `/recruitment/interviews/versions/${vid}/prescreen`,
+    PRESCREEN_QUESTION: (qid) => `/recruitment/prescreen-questions/${qid}`,
   },
 
   // Recruitment Phase 2 - Invites, Sessions, Settings
@@ -177,8 +195,13 @@ export const ENDPOINTS = {
     GET: (id) => `/recruitment/sessions/${id}`,
     SCORE: (id) => `/recruitment/sessions/${id}/score`,
     APP_RESULT: (appId) => `/recruitment/applications/${appId}/result`,
+    REVIEW: (id) => `/recruitment/sessions/${id}/review`,
+    REVIEWS: (id) => `/recruitment/sessions/${id}/reviews`,
+    SPEECH: (id) => `/recruitment/sessions/${id}/speech-analytics`,
   },
   RECRUITMENT_SETTINGS: '/recruitment/settings',
+  EMAIL_TEMPLATES: '/recruitment/email-templates',
+  EMAIL_TEMPLATE: (kind) => `/recruitment/email-templates/${kind}`,
 
   // Recruitment Phase 2 - Public (candidate, no auth)
   PUBLIC: {
@@ -190,6 +213,11 @@ export const ENDPOINTS = {
     RESULT: (st) => `/recruitment/public/sessions/${st}/result`,
     VOICE_TOKEN: (st) => `/recruitment/public/sessions/${st}/voice-token`,
     RISK_SIGNALS: (st) => `/recruitment/public/sessions/${st}/risk-signals`,
+    PRESCREEN_GET: (token) => `/recruitment/public/invites/${token}/prescreen`,
+    PRESCREEN_SUBMIT: (st) => `/recruitment/public/sessions/${st}/prescreen`,
+    STATUS: (token) => `/recruitment/public/invites/${token}/status`,
+    PORTAL: (slug) => `/recruitment/public/portal/${slug}`,
+    PORTAL_APPLY: (slug, templateId) => `/recruitment/public/portal/${slug}/apply/${templateId}`,
   },
 };
 

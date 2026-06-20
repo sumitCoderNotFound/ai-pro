@@ -19,6 +19,8 @@ const InviteModal = ({ templateId, isOpen, onClose }) => {
   const [error, setError] = useState('')
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [maxAttempts, setMaxAttempts] = useState(1)
+  const [deadline, setDeadline] = useState('')
   const [creating, setCreating] = useState(false)
   const [copied, setCopied] = useState(null)
   const [bulkEmails, setBulkEmails] = useState('')
@@ -34,12 +36,17 @@ const InviteModal = ({ templateId, isOpen, onClose }) => {
       setInvites(res.items || [])
     } catch (err) { setError(err.message) } finally { setLoading(false) }
   }
-  useEffect(() => { if (isOpen) { load(); setEmail(''); setName(''); setBulkEmails(''); setNotice(''); setError('') } }, [isOpen, templateId])
+  useEffect(() => { if (isOpen) { load(); setEmail(''); setName(''); setMaxAttempts(1); setDeadline(''); setBulkEmails(''); setNotice(''); setError('') } }, [isOpen, templateId])
 
   const create = async () => {
     setCreating(true); setError('')
     try {
-      await recruitmentApi.invites.create(templateId, { email: email || null, candidate_name: name || null, max_attempts: 1 })
+      await recruitmentApi.invites.create(templateId, {
+        email: email || null,
+        candidate_name: name || null,
+        max_attempts: Math.max(1, Number(maxAttempts) || 1),
+        expires_at: deadline ? new Date(deadline).toISOString() : null,
+      })
       await load()
     } catch (err) {
       setError(err.message?.includes('publish') ? 'Publish the interview before creating invites.' : err.message)
@@ -99,6 +106,19 @@ const InviteModal = ({ templateId, isOpen, onClose }) => {
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)"
                   className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
               </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-neutral-500 mb-1">Attempts allowed</label>
+                  <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 mb-1">Deadline (optional)</label>
+                  <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                </div>
+              </div>
+              <p className="text-xs text-neutral-400">Add an email to lock this invite to that one candidate. Leave it empty for a shareable link anyone can use.</p>
               <button onClick={create} disabled={creating} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 text-sm font-medium">
                 <Send className="w-4 h-4" /> {creating ? 'Generating…' : 'Generate invite link'}
               </button>

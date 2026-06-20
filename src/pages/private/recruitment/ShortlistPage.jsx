@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { recruitmentApi } from '@/services/api'
 import EmptyState from '@/components/onboarding/EmptyState'
 import {
-  AlertCircle, X, ArrowLeft, Award, ShieldAlert, Check, Ban, Trophy, ChevronRight,
+  AlertCircle, X, ArrowLeft, Award, ShieldAlert, Check, Ban, Trophy, ChevronRight, Filter,
 } from 'lucide-react'
 
 const REC_STYLE = {
@@ -23,6 +23,30 @@ const ShortlistPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [acting, setActing] = useState(null)
+  const [notice, setNotice] = useState('')
+  const [elig, setElig] = useState(null)          // { item, result|null, loading, note }
+  const [savingElig, setSavingElig] = useState(false)
+
+  const openEligibility = async (item) => {
+    setElig({ item, result: null, loading: true, note: '' })
+    try {
+      const result = await recruitmentApi.applications.prescreenResult(item.application_id)
+      setElig({ item, result, loading: false, note: result.override_note || '' })
+    } catch {
+      setElig({ item, result: null, loading: false, note: '' })  // 404 = no pre-screening
+    }
+  }
+
+  const overrideElig = async (makeEligible) => {
+    if (!elig?.result) return
+    setSavingElig(true)
+    try {
+      const updated = await recruitmentApi.applications.prescreenOverride(elig.result.id, { eligible: makeEligible, note: elig.note })
+      setElig((p) => ({ ...p, result: updated }))
+      setNotice(`Eligibility set to ${makeEligible ? 'eligible' : 'not eligible'}.`)
+      await load()
+    } catch (err) { setError(err.message) } finally { setSavingElig(false) }
+  }
 
   const load = async () => {
     try { setLoading(true); setError(''); setData(await recruitmentApi.jobs.shortlist(jobId)) }
@@ -31,11 +55,15 @@ const ShortlistPage = () => {
   useEffect(() => { load() }, [jobId])
 
   const decide = async (item, toStage) => {
-    setActing(item.application_id)
+    setActing(item.application_id); setNotice('')
     try {
       await recruitmentApi.applications.decide(item.application_id, toStage,
         toStage === 'advanced' ? 'Advanced from shortlist' : 'Rejected from shortlist')
       await load()
+      try {
+        const res = await recruitmentApi.applications.notify(item.application_id, toStage === 'advanced' ? 'advance' : 'rejected')
+        setNotice(res.message)
+      } catch { /* notification is best-effort */ }
     } catch (err) { setError(err.message) } finally { setActing(null) }
   }
 
@@ -56,6 +84,7 @@ const ShortlistPage = () => {
       </div>
 
       {error && <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700"><AlertCircle className="w-5 h-5 flex-shrink-0" />{error}<button onClick={() => setError('')} className="ml-auto"><X className="w-4 h-4" /></button></div>}
+      {notice && <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-sm">{notice}</div>}
 
       {!data || data.items.length === 0 ? (
         <EmptyState
@@ -95,11 +124,57 @@ const ShortlistPage = () => {
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-40"><Ban className="w-4 h-4" /></button>
                   </>
                 )}
+                <button onClick={() => openEligibility(item)} title="Pre-screening eligibility" className="p-2 text-neutral-400 hover:bg-neutral-100 rounded-lg"><Filter className="w-4 h-4" /></button>
                 <button onClick={() => navigate('/dashboard/results')} title="View result" className="p-2 text-neutral-400 hover:bg-neutral-100 rounded-lg"><ChevronRight className="w-4 h-4" /></button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {elig && (
+        <div className="fixed inset-0 z-50 overflow-y-auto"><div className="flex min-h-full items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setElig(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2"><Filter className="w-5 h-5 text-primary-600" /> Pre-screening</h2>
+              <button onClick={() => setElig(null)} className="text-neutral-400 hover:text-neutral-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="text-sm text-neutral-500">{elig.item.candidate_name || elig.item.candidate_email || 'Candidate'}</div>
+
+            {elig.loading ? (
+              <div className="flex justify-center py-6"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" /></div>
+            ) : !elig.result ? (
+              <p className="text-sm text-neutral-600">No pre-screening was recorded for this candidate.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${elig.result.eligible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {elig.result.eligible ? 'Eligible' : 'Not eligible'}
+                  </span>
+                  {elig.result.overridden && <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">overridden</span>}
+                  {!elig.result.overridden && <span className="text-xs text-neutral-400">auto decision</span>}
+                </div>
+
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {(elig.result.answers || []).map((a, i) => (
+                    <div key={i} className="text-sm">
+                      <div className="text-neutral-700">{a.prompt}</div>
+                      <div className="text-neutral-500">{String(a.value ?? '—')}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <textarea value={elig.note} onChange={(e) => setElig((p) => ({ ...p, note: e.target.value }))} rows={2}
+                  placeholder="Override note (optional)" className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => overrideElig(false)} disabled={savingElig} className="px-4 py-2 text-sm border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Mark not eligible</button>
+                  <button onClick={() => overrideElig(true)} disabled={savingElig} className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">Mark eligible</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div></div>
       )}
     </div>
   )

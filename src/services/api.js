@@ -546,6 +546,27 @@ export const recruitmentApi = {
     update: (id, data) => api.patch(ENDPOINTS.CANDIDATES.UPDATE(id), data),
     remove: (id) => api.delete(ENDPOINTS.CANDIDATES.DELETE(id)),
     bulkImport: (data) => api.post(ENDPOINTS.CANDIDATES.BULK_IMPORT, data),
+    documents: (id) => api.get(ENDPOINTS.CANDIDATES.DOCUMENTS(id)),
+    uploadDocument: async (id, file, kind = 'resume') => {
+      const token = localStorage.getItem('convohubai_access_token')
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('kind', kind)
+      const res = await fetch(`${API_URL}${ENDPOINTS.CANDIDATES.DOCUMENTS(id)}`, {
+        method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd,
+      })
+      if (!res.ok) { let m = 'Upload failed'; try { m = (await res.json()).detail || m } catch { /* ignore */ } throw new Error(m) }
+      return res.json()
+    },
+    downloadDocument: async (docId) => {
+      const token = localStorage.getItem('convohubai_access_token')
+      const res = await fetch(`${API_URL}${ENDPOINTS.CANDIDATES.DOCUMENT_DOWNLOAD(docId)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error('Could not download the file')
+      return res.blob()
+    },
+    deleteDocument: (docId) => api.delete(ENDPOINTS.CANDIDATES.DOCUMENT(docId)),
   },
   applications: {
     list: (params = {}) => api.get(ENDPOINTS.APPLICATIONS.LIST, params),
@@ -553,6 +574,9 @@ export const recruitmentApi = {
     get: (id) => api.get(ENDPOINTS.APPLICATIONS.GET(id)),
     decide: (id, toStage, reason) =>
       api.post(ENDPOINTS.APPLICATIONS.DECIDE(id), { to_stage: toStage, reason }),
+    notify: (id, kind) => api.post(ENDPOINTS.APPLICATIONS.NOTIFY(id), { kind }),
+    prescreenResult: (id) => api.get(ENDPOINTS.APPLICATIONS.PRESCREEN_RESULT(id)),
+    prescreenOverride: (resultId, data) => api.post(ENDPOINTS.APPLICATIONS.PRESCREEN_OVERRIDE(resultId), data),
     history: (id) => api.get(ENDPOINTS.APPLICATIONS.HISTORY(id)),
   },
   interviews: {
@@ -579,6 +603,10 @@ export const recruitmentApi = {
     updateCriterion: (vid, cid, data) => api.patch(ENDPOINTS.VERSIONS.CRITERION(vid, cid), data),
     deleteCriterion: (vid, cid) => api.delete(ENDPOINTS.VERSIONS.CRITERION(vid, cid)),
     simulate: (vid, persona) => api.post(ENDPOINTS.VERSIONS.SIMULATE(vid), { persona }),
+    listPrescreen: (vid) => api.get(ENDPOINTS.VERSIONS.PRESCREEN(vid)),
+    addPrescreen: (vid, data) => api.post(ENDPOINTS.VERSIONS.PRESCREEN(vid), data),
+    updatePrescreen: (qid, data) => api.patch(ENDPOINTS.VERSIONS.PRESCREEN_QUESTION(qid), data),
+    deletePrescreen: (qid) => api.delete(ENDPOINTS.VERSIONS.PRESCREEN_QUESTION(qid)),
   },
   invites: {
     create: (templateId, data) => api.post(ENDPOINTS.INVITES.CREATE(templateId), data),
@@ -593,10 +621,37 @@ export const recruitmentApi = {
     getScore: (id) => api.get(`${ENDPOINTS.SESSIONS.GET(id)}/score`),
     rescore: (id) => api.post(ENDPOINTS.SESSIONS.SCORE(id)),
     applicationResult: (appId) => api.get(ENDPOINTS.SESSIONS.APP_RESULT(appId)),
+    addReview: (id, data) => api.post(ENDPOINTS.SESSIONS.REVIEW(id), data),
+    reviews: (id) => api.get(ENDPOINTS.SESSIONS.REVIEWS(id)),
+    speechAnalytics: (id) => api.get(ENDPOINTS.SESSIONS.SPEECH(id)),
+    downloadReport: async (id) => {
+      const token = localStorage.getItem('convohubai_access_token')
+      const res = await fetch(`${API_URL}${ENDPOINTS.SESSIONS.GET(id)}/report`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error('Could not generate the report')
+      return res.blob()
+    },
+  },
+  ats: {
+    providers: () => api.get(ENDPOINTS.ATS.PROVIDERS),
+    list: () => api.get(ENDPOINTS.ATS.CONNECTIONS),
+    create: (data) => api.post(ENDPOINTS.ATS.CONNECTIONS, data),
+    update: (id, data) => api.patch(ENDPOINTS.ATS.CONNECTION(id), data),
+    remove: (id) => api.delete(ENDPOINTS.ATS.CONNECTION(id)),
+    test: (id) => api.post(ENDPOINTS.ATS.TEST(id)),
+    importJobs: (id, data = { limit: 100 }) => api.post(ENDPOINTS.ATS.IMPORT_JOBS(id), data),
+    importCandidates: (id, data = { limit: 100 }) => api.post(ENDPOINTS.ATS.IMPORT_CANDIDATES(id), data),
+    push: (id, appId) => api.post(ENDPOINTS.ATS.PUSH(id, appId)),
   },
   settings: {
     get: () => api.get(ENDPOINTS.RECRUITMENT_SETTINGS),
     update: (data) => api.patch(ENDPOINTS.RECRUITMENT_SETTINGS, data),
+  },
+  emailTemplates: {
+    list: () => api.get(ENDPOINTS.EMAIL_TEMPLATES),
+    upsert: (kind, data) => api.put(ENDPOINTS.EMAIL_TEMPLATE(kind), data),
+    reset: (kind) => api.delete(ENDPOINTS.EMAIL_TEMPLATE(kind)),
   },
 };
 
@@ -631,6 +686,19 @@ export const publicInterviewApi = {
   getResult: (st) => publicRequest(ENDPOINTS.PUBLIC.RESULT(st)),
   voiceToken: (st) => publicRequest(ENDPOINTS.PUBLIC.VOICE_TOKEN(st), 'POST'),
   riskSignals: (st, signals) => publicRequest(ENDPOINTS.PUBLIC.RISK_SIGNALS(st), 'POST', { signals }),
+  getPrescreen: (token) => publicRequest(ENDPOINTS.PUBLIC.PRESCREEN_GET(token)),
+  submitPrescreen: (st, answers) => publicRequest(ENDPOINTS.PUBLIC.PRESCREEN_SUBMIT(st), 'POST', { answers }),
+  status: (token) => publicRequest(ENDPOINTS.PUBLIC.STATUS(token)),
+  portal: (slug) => publicRequest(ENDPOINTS.PUBLIC.PORTAL(slug)),
+  portalApply: (slug, templateId, data) => publicRequest(ENDPOINTS.PUBLIC.PORTAL_APPLY(slug, templateId), 'POST', data),
+  uploadDocument: async (st, file, kind = 'resume') => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('kind', kind)
+    const res = await fetch(`${API_URL}/recruitment/public/sessions/${st}/documents`, { method: 'POST', body: fd })
+    if (!res.ok) { let m = 'Upload failed'; try { m = (await res.json()).detail || m } catch { /* ignore */ } throw new Error(m) }
+    return res.json()
+  },
 };
 
 export default api;

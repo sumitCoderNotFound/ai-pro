@@ -85,8 +85,11 @@ import InterviewBuilderPage from './pages/private/recruitment/InterviewBuilderPa
 import ResultsPage from './pages/private/recruitment/ResultsPage'
 import RecruitmentSettingsPage from './pages/private/recruitment/RecruitmentSettingsPage'
 import CandidateInterviewPage from './pages/private/recruitment/CandidateInterviewPage'
+import CandidateStatusPage from './pages/public/CandidateStatusPage'
+import CareersPortalPage from './pages/public/CareersPortalPage'
 import RecruitmentDashboardPage from './pages/private/recruitment/RecruitmentDashboardPage'
 import ShortlistPage from './pages/private/recruitment/ShortlistPage'
+import AtsIntegrationsPage from './pages/private/recruitment/IntegrationsPage'
 
 
 // Protected Route Component
@@ -226,6 +229,7 @@ function AppRoutes() {
         <Route path="/dashboard/recruitment" element={<RecruitmentDashboardPage />} />
         <Route path="/dashboard/jobs/:jobId/shortlist" element={<ShortlistPage />} />
         <Route path="/dashboard/recruitment-settings" element={<RecruitmentSettingsPage />} />
+        <Route path="/dashboard/ats" element={<AtsIntegrationsPage />} />
 
         {/* SYSTEM Section */}
         <Route path="/dashboard/billing" element={<BillingPage />} />
@@ -249,6 +253,8 @@ function AppRoutes() {
       {/* PUBLIC CANDIDATE INTERVIEW - no layout, no auth */}
       {/* ============================================ */}
       <Route path="/candidate/interview/:token" element={<CandidateInterviewPage />} />
+      <Route path="/candidate/status/:token" element={<CandidateStatusPage />} />
+      <Route path="/apply/:slug" element={<CareersPortalPage />} />
 
       {/* ============================================ */}
       {/* CATCH ALL - Redirect to home */}

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { recruitmentApi } from '@/services/api'
 import {
   ArrowLeft, AlertCircle, X, Sparkles, Plus, Trash2, ChevronUp, ChevronDown,
-  Check, Play, Send, Lock, FileEdit, Settings as SettingsIcon, ListChecks, Scale, MessageSquare,
+  Check, Play, Send, Lock, FileEdit, Settings as SettingsIcon, ListChecks, Scale, MessageSquare, Filter,
 } from 'lucide-react'
 
 const QUESTION_TYPES = [
@@ -71,20 +71,37 @@ const QuestionRow = ({ q, index, total, editable, onMove, onDelete, onSave }) =>
   )
 }
 
+const RESPONSE_TYPES = [
+  { value: 'text', label: 'Free text (spoken or typed)' },
+  { value: 'yes_no', label: 'Yes / No' },
+  { value: 'single_select', label: 'Single choice' },
+  { value: 'multi_select', label: 'Multiple choice' },
+  { value: 'number', label: 'Number' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'info', label: 'Information only (no answer)' },
+]
+
 const QuestionsTab = ({ version, editable, questions, reload, onError }) => {
   const [type, setType] = useState('open_response')
   const [text, setText] = useState('')
+  const [responseType, setResponseType] = useState('text')
+  const [options, setOptions] = useState('')
+  const [scale, setScale] = useState(5)
   const [adding, setAdding] = useState(false)
 
   const add = async () => {
     if (!text.trim()) return
     setAdding(true)
     try {
+      const config = { required: true, probing_depth: 1, response_type: responseType }
+      if (responseType === 'single_select' || responseType === 'multi_select') {
+        config.options = options.split(',').map((s) => s.trim()).filter(Boolean)
+      }
+      if (responseType === 'rating') config.scale = Math.max(2, Math.min(10, Number(scale) || 5))
       await recruitmentApi.versions.addQuestion(version.id, {
-        question_type: type, prompt_text: text, is_knockout: type === 'knockout',
-        config: { required: true, probing_depth: 1 },
+        question_type: type, prompt_text: text, is_knockout: type === 'knockout', config,
       })
-      setText(''); await reload()
+      setText(''); setOptions(''); await reload()
     } catch (err) { onError(err.message) } finally { setAdding(false) }
   }
 
@@ -109,10 +126,23 @@ const QuestionsTab = ({ version, editable, questions, reload, onError }) => {
         <div className="border border-dashed border-neutral-300 rounded-xl p-4 space-y-3">
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Type a question prompt…"
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-sm" />
-          <div className="flex items-center gap-2">
+          <div className="grid sm:grid-cols-2 gap-2">
             <select value={type} onChange={(e) => setType(e.target.value)} className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
               {QUESTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
+            <select value={responseType} onChange={(e) => setResponseType(e.target.value)} className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              {RESPONSE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          {(responseType === 'single_select' || responseType === 'multi_select') && (
+            <input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Options, comma separated"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          )}
+          {responseType === 'rating' && (
+            <input type="number" min={2} max={10} value={scale} onChange={(e) => setScale(e.target.value)} placeholder="Max rating (e.g. 5)"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          )}
+          <div className="flex justify-end">
             <button onClick={add} disabled={adding || !text.trim()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 text-sm font-medium">
               <Plus className="w-4 h-4" /> Add question
             </button>
@@ -275,8 +305,22 @@ const SettingsTab = ({ version, editable, onSave, onError }) => {
         </div>
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-2">Language</label>
-          <input name="language" value={form.language} onChange={change} disabled={!editable}
-            className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-50" />
+          <select name="language" value={form.language} onChange={change} disabled={!editable}
+            className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-50">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="hi">Hindi</option>
+            <option value="pt">Portuguese</option>
+            <option value="it">Italian</option>
+            <option value="nl">Dutch</option>
+            <option value="ja">Japanese</option>
+            <option value="zh">Chinese</option>
+            <option value="ar">Arabic</option>
+            <option value="ru">Russian</option>
+          </select>
+          <p className="text-xs text-neutral-400 mt-1">Questions are generated in this language. Voice speech-to-text supports it; voice output is best in English.</p>
         </div>
       </div>
       <label className="flex items-center gap-3 p-3 border border-neutral-200 rounded-xl">
@@ -343,8 +387,103 @@ const PreviewTab = ({ version, onError }) => {
 }
 
 // ---------------- Main builder ----------------
+// ---------------- Pre-screening tab ----------------
+const PS_TYPES = [
+  { value: 'yes_no', label: 'Yes / No' },
+  { value: 'single_select', label: 'Single select' },
+  { value: 'number', label: 'Number' },
+  { value: 'text', label: 'Text' },
+]
+const PS_OPS = [
+  { value: '', label: 'No knockout (just collect)' },
+  { value: 'equals', label: 'Reject if answer equals' },
+  { value: 'not_equals', label: 'Reject if answer is not' },
+  { value: 'min', label: 'Reject if less than' },
+  { value: 'max', label: 'Reject if more than' },
+]
+
+const PrescreenTab = ({ version, editable, onError }) => {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ prompt: '', qtype: 'yes_no', options: '', op: '', value: '', required: true })
+
+  const load = async () => {
+    try { setLoading(true); setItems(await recruitmentApi.versions.listPrescreen(version.id)) }
+    catch (err) { onError(err.message) } finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, [version.id])
+
+  const add = async () => {
+    if (!form.prompt.trim()) { onError('Enter a question.'); return }
+    const knockout = form.op ? { op: form.op, value: form.op === 'min' || form.op === 'max' ? Number(form.value) : form.value } : null
+    try {
+      await recruitmentApi.versions.addPrescreen(version.id, {
+        prompt: form.prompt, qtype: form.qtype,
+        options: form.qtype === 'single_select' ? form.options.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        knockout, required: form.required, order_index: items.length,
+      })
+      setForm({ prompt: '', qtype: 'yes_no', options: '', op: '', value: '', required: true })
+      await load()
+    } catch (err) { onError(err.message) }
+  }
+  const del = async (id) => { try { await recruitmentApi.versions.deletePrescreen(id); await load() } catch (err) { onError(err.message) } }
+
+  const describe = (q) => {
+    if (!q.knockout || !q.knockout.op) return 'No knockout'
+    const m = { equals: 'rejects if =', not_equals: 'rejects if ≠', min: 'rejects if <', max: 'rejects if >' }
+    return `${m[q.knockout.op] || q.knockout.op} ${q.knockout.value}`
+  }
+
+  if (loading) return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" /></div>
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-neutral-500">Eligibility questions are asked before the interview. A knockout rule auto-rejects a candidate (you can override later).</p>
+      {items.length === 0 && <p className="text-sm text-neutral-500">No pre-screening questions{editable ? '' : ' (create a draft to edit)'}.</p>}
+      {items.map((q) => (
+        <div key={q.id} className="flex items-start justify-between p-3 border border-neutral-200 rounded-xl">
+          <div>
+            <div className="text-sm font-medium text-neutral-800">{q.prompt}{q.required && <span className="text-red-500"> *</span>}</div>
+            <div className="text-xs text-neutral-400 mt-0.5">{PS_TYPES.find((t) => t.value === q.qtype)?.label} · {describe(q)}</div>
+          </div>
+          {editable && <button onClick={() => del(q.id)} className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>}
+        </div>
+      ))}
+      {editable && (
+        <div className="border border-dashed border-neutral-300 rounded-xl p-4 space-y-3">
+          <input value={form.prompt} onChange={(e) => setForm((p) => ({ ...p, prompt: e.target.value }))} placeholder="Question, e.g. Are you eligible to work in the UK?"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          <div className="grid sm:grid-cols-2 gap-2">
+            <select value={form.qtype} onChange={(e) => setForm((p) => ({ ...p, qtype: e.target.value }))} className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              {PS_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <select value={form.op} onChange={(e) => setForm((p) => ({ ...p, op: e.target.value }))} className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              {PS_OPS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          {form.qtype === 'single_select' && (
+            <input value={form.options} onChange={(e) => setForm((p) => ({ ...p, options: e.target.value }))} placeholder="Options, comma separated"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          )}
+          {form.op && (
+            <input value={form.value} onChange={(e) => setForm((p) => ({ ...p, value: e.target.value }))} placeholder={form.op === 'min' || form.op === 'max' ? 'Threshold number' : 'Failing answer (e.g. no)'}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          )}
+          <label className="flex items-center gap-2 text-sm text-neutral-600">
+            <input type="checkbox" checked={form.required} onChange={(e) => setForm((p) => ({ ...p, required: e.target.checked }))} className="w-4 h-4 accent-primary-600" /> Required
+          </label>
+          <button onClick={add} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">
+            <Plus className="w-4 h-4" /> Add question
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TABS = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
+  { key: 'prescreen', label: 'Pre-screening', icon: Filter },
   { key: 'questions', label: 'Questions', icon: ListChecks },
   { key: 'rubric', label: 'Rubric', icon: Scale },
   { key: 'preview', label: 'Preview', icon: MessageSquare },
@@ -501,6 +640,8 @@ const InterviewBuilderPage = () => {
               <p className="text-sm text-neutral-500">Showing the latest published version is read-only. Create a new draft to make changes.</p>
             ) : tab === 'settings' ? (
               <SettingsTab version={draft} editable={editable} onSave={saveSettings} onError={setError} />
+            ) : tab === 'prescreen' ? (
+              <PrescreenTab version={draft} editable={editable} onError={setError} />
             ) : tab === 'questions' ? (
               <QuestionsTab version={draft} editable={editable} questions={questions} reload={reloadContent} onError={setError} />
             ) : tab === 'rubric' ? (
